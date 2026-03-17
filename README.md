@@ -60,11 +60,17 @@ npx expo start
 # Scan QR code with Expo Go app or run on simulator
 ```
 
-### ESP8266 Firmware
-1. Use firmware/iot_rfid_project/iot_rfid_project_v2.ino
-2. Update WiFi & MQTT settings
-3. Install: MFRC522, PubSubClient, ArduinoJson
-4. Upload to ESP8266
+### ESP8266 Firmware (Arduino IDE)
+1. **Open Arduino IDE** and install required libraries:
+   - MFRC522 (by GithubCommunity)
+   - PubSubClient (by Nick O'Leary)
+   - ArduinoJson (by Benoit Blanchon)
+2. **Open** `firmware/iot_rfid_project/iot_rfid_project_v2/iot_rfid_project_v2.ino`
+3. **Configure** WiFi credentials and MQTT broker settings in the code
+4. **Select** ESP8266 board (NodeMCU 1.0 or similar)
+5. **Upload** to ESP8266 via USB cable
+
+**Note**: This project uses Arduino IDE, not MicroPython. Ignore any Python-related setup files.
 
 ### Hardware Wiring (ESP8266 + RC522)
 | RC522 | ESP8266 |
@@ -155,8 +161,15 @@ NexaPay/
 - **Navigation**: Expo Router
 - **Backend**: Node.js + Express
 - **Database**: MongoDB Atlas
-- **IoT**: ESP8266 + RC522 RFID
+- **IoT**: ESP8266 + RC522 RFID (Arduino IDE)
 - **Communication**: MQTT Protocol
+
+## ⚠️ Important Notes
+
+- **Firmware**: This project uses **Arduino IDE** with C++ code (.ino files)
+- **Setup**: Use Arduino IDE, not MicroPython or Python tools
+- **Libraries**: Install Arduino libraries via Library Manager
+- **Upload**: Direct upload from Arduino IDE to ESP8266
 
 ## 📝 Team ID: team_I
 
