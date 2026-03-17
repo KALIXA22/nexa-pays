@@ -133,17 +133,20 @@ function setupMQTT() {
 
       // Handle card scans
       if (topic === TOPICS.STATUS) {
-        const { uid, balance } = data;
+        const { uid } = data;
 
-        // Ensure wallet exists in DB
-        await getOrCreateWallet(uid);
+        // Ensure wallet exists in DB and get real balance
+        const wallet = await getOrCreateWallet(uid);
+        const realBalance = wallet.balance;
 
-        // Broadcast to all connected clients
+        // Broadcast to all connected clients with REAL balance from database
         io.emit('card-scanned', {
           uid,
-          deviceBalance: balance,
+          deviceBalance: realBalance, // Use real balance from database
           timestamp: new Date()
         });
+
+        console.log(`📱 Card ${uid} detected - Real balance: ${realBalance}`);
       }
 
       // Handle payment confirmations
