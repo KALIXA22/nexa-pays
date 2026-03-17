@@ -1,38 +1,21 @@
-# ESP8266 Arduino IDE Setup Instructions
+# ESP8266 MicroPython Setup Commands - Run in this order:
 
-# This project uses Arduino IDE with C++ code (.ino files), NOT MicroPython
+# Step 1: Erase flash memory
+python -m esptool --port COM3 erase_flash
 
-## Setup Steps:
+# Step 2: Flash MicroPython firmware
+python -m esptool --port COM3 --baud 460800 write-flash --flash-size detect 0 "C:\Users\HHP\Downloads\ESP8266_GENERIC-20251209-v1.27.0.bin"
 
-# Step 1: Install Arduino IDE
-# Download from: https://www.arduino.cc/en/software
+# Step 3: Upload MFRC522 library (make sure mfrc522.py exists in current directory)
+ampy --port COM3 put mfrc522.py
 
-# Step 2: Install ESP8266 Board Package
-# In Arduino IDE: File > Preferences > Additional Board Manager URLs
-# Add: http://arduino.esp8266.com/stable/package_esp8266com_index.json
-# Then: Tools > Board > Boards Manager > Search "ESP8266" > Install
-
-# Step 3: Install Required Libraries
-# In Arduino IDE: Sketch > Include Library > Manage Libraries
-# Install these libraries:
-# - MFRC522 (by GithubCommunity)
-# - PubSubClient (by Nick O'Leary) 
-# - ArduinoJson (by Benoit Blanchon)
-
-# Step 4: Open and Configure Code
-# Open: firmware/iot_rfid_project/iot_rfid_project_v2/iot_rfid_project_v2.ino
-# Update WiFi credentials and MQTT broker settings in the code
-
-# Step 5: Upload to ESP8266
-# Connect ESP8266 via USB
-# Select correct board: Tools > Board > NodeMCU 1.0 (ESP-12E Module)
-# Select correct port: Tools > Port > COM3 (or your port)
-# Click Upload button
+# Step 4: Upload main program (make sure main.py exists in current directory)
+ampy --port COM3 put main.py
 
 # Notes:
-# - No Python tools needed for this project
-# - No main.py or mfrc522.py files needed
-# - Everything is handled through Arduino IDE
+# - Make sure ESP8266 is connected to COM3 (check Device Manager)
+# - Install required tools: pip install esptool ampy
+# - Have mfrc522.py and main.py files ready in your current directory
 
 
 
@@ -40,3 +23,7 @@
 
 
 
+ampy --port COM3 put mfrc522.py
+ampy --port COM3 put main.py
+ py -m      esptool --port COM3 erase_flash
+python -m esptool --port COM3 --baud 460800 write-flash --flash-size detect 0 .\ESP8266_GENERIC-20251209-v1.27.0.bin
