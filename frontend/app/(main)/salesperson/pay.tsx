@@ -13,7 +13,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { SalespersonBottomNav } from '../../../components/SalespersonBottomNav';
 import { StorageService } from '../../../services/storage';
-import { User } from '../../../services/api';
+import { User, apiService } from '../../../services/api';
+import { webSocketService, CardScannedEvent } from '../../../services/websocket';
 import { useCart } from '../../../contexts/CartContext';
 
 export default function SalespersonPay() {
@@ -22,6 +23,9 @@ export default function SalespersonPay() {
   const [status, setStatus] = useState<'idle' | 'scanning' | 'success' | 'failed'>('idle');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isCheckoutMode, setIsCheckoutMode] = useState(false);
+  const [detectedCard, setDetectedCard] = useState<CardScannedEvent | null>(null);
+  const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
+  const [paymentResult, setPaymentResult] = useState<any>(null);
   
   // Cart context
   const { items, getTotalItems, getTotalPrice, updateQuantity, removeFromCart, clearCart } = useCart();
@@ -49,12 +53,141 @@ export default function SalespersonPay() {
       try {
         const user = await StorageService.getUser();
         setCurrentUser(user);
+        
+        // Set API token for authenticated requests
+        const token = await StorageService.getToken();
+        if (token) {
+          apiService.setToken(token);
+        }
       } catch (error) {
         console.error('Failed to load user data:', error);
       }
     };
     loadUserData();
   }, []);
+
+  // WebSocket connection for real-time RFID detection
+  useEffect(() => {
+    const connectWebSocket = async () => {
+      try {
+        const connected = await webSocketService.connect();
+        setIsWebSocketConnected(connected);
+        
+        if (connected) {
+          // Listen for real RFID card detections
+          const handleCardScanned = async (data: CardScannedEvent) => {
+            console.log('💳 RFID card detected for payment:', data);
+            setDetectedCard(data);
+            
+            // Auto-process payment when card is detected and in checkout mode
+            if (isCheckoutMode && status === 'idle') {
+              await processPayment(data);
+            }
+          };
+
+          webSocketService.on('card-scanned', handleCardScanned);
+
+          return () => {
+            webSocketService.off('card-scanned', handleCardScanned);
+          };
+        }
+      } catch (error) {
+        console.error('WebSocket connection error:', error);
+        setIsWebSocketConnected(false);
+      }
+    };
+
+    connectWebSocket();
+
+    return () => {
+      webSocketService.disconnect();
+    };
+  }, [isCheckoutMode, status]);
+
+  // Process payment with detected card
+  const processPayment = async (cardData: CardScannedEvent) => {
+    setStatus('scanning');
+    
+    try {
+      const totalAmount = getTotalPrice(); // Amount in cents
+      const totalAmountDollars = totalAmount / 100;
+      
+      console.log('💰 Processing payment:', {
+        cardUID: cardData.uid,
+        totalAmount: totalAmountDollars,
+        cardBalance: cardData.deviceBalance,
+        items: displayItems
+      });
+      
+      // Check if card has sufficient balance
+      if (cardData.deviceBalance < totalAmountDollars) {
+        setStatus('failed');
+        Alert.alert(
+          '❌ Insufficient Balance',
+          `Card Balance: $${cardData.deviceBalance.toFixed(2)}\n` +
+          `Required Amount: $${totalAmountDollars.toFixed(2)}\n` +
+          `Shortage: $${(totalAmountDollars - cardData.deviceBalance).toFixed(2)}\n\n` +
+          `Please top-up the card or use a different payment method.`,
+          [
+            {
+              text: 'Try Another Card',
+              onPress: () => {
+                setStatus('idle');
+                setDetectedCard(null);
+              }
+            },
+            { text: 'Cancel', style: 'cancel' }
+          ]
+        );
+        return;
+      }
+      
+      // Process payment via API
+      const response = await apiService.pay(
+        cardData.uid,
+        'multiple_items', // productId for multiple items
+        getTotalItems(), // quantity
+        totalAmount // totalAmount in cents
+      );
+      
+      if (response.success) {
+        setStatus('success');
+        setPaymentResult(response);
+        
+        console.log('✅ Payment successful:', response);
+        
+        // Show success notification
+        Alert.alert(
+          '✅ Payment Successful!',
+          `Card: ${cardData.uid}\n` +
+          `Amount Paid: $${totalAmountDollars.toFixed(2)}\n` +
+          `Previous Balance: $${cardData.deviceBalance.toFixed(2)}\n` +
+          `New Balance: $${response.newBalance.toFixed(2)}`,
+          [{ text: 'OK' }]
+        );
+        
+      } else {
+        throw new Error(response.error || 'Payment failed');
+      }
+      
+    } catch (error) {
+      console.error('❌ Payment error:', error);
+      setStatus('failed');
+      Alert.alert(
+        '❌ Payment Failed',
+        `Failed to process payment for card ${cardData.uid}.\n\nError: ${error.message || 'Unknown error'}\n\nPlease try again.`,
+        [
+          {
+            text: 'Retry',
+            onPress: () => {
+              setStatus('idle');
+            }
+          },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
+    }
+  };
 
   // Animation values
   const pulseScale = useSharedValue(1);
@@ -81,15 +214,18 @@ export default function SalespersonPay() {
       return;
     }
     
-    setStatus('scanning');
+    if (!isWebSocketConnected) {
+      Alert.alert('Connection Error', 'Not connected to RFID system. Please check your connection.');
+      return;
+    }
     
-    // Simulate successful payment after 3 seconds
-    setTimeout(() => {
-      setStatus('success');
-      successScale.value = withTiming(1, { duration: 500, easing: Easing.back(1.5) });
-      
-      // Don't auto-redirect - let user manually navigate with buttons
-    }, 3000);
+    // Just set to scanning mode - actual payment will be triggered by RFID detection
+    setStatus('scanning');
+    Alert.alert(
+      'Ready for Payment',
+      'Please place the RFID card on the reader to process payment.',
+      [{ text: 'OK' }]
+    );
   };
 
   const handleProceedToCheckout = () => {
@@ -263,6 +399,40 @@ export default function SalespersonPay() {
               </View>
             </View>
 
+            {/* Connection Status */}
+            {!isWebSocketConnected && (
+              <View className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+                <Text style={{ color: '#dc2626' }} className="font-semibold text-sm mb-1">
+                  RFID System Offline
+                </Text>
+                <Text style={{ color: '#b91c1c' }} className="text-xs">
+                  Cannot process payments. Please check connection.
+                </Text>
+              </View>
+            )}
+
+            {/* Detected Card Info */}
+            {detectedCard && status !== 'success' && (
+              <View className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+                <View className="flex-row items-center justify-between">
+                  <View>
+                    <Text style={{ color: '#1d4ed8' }} className="font-semibold text-sm mb-1">
+                      Card Detected: {detectedCard.uid}
+                    </Text>
+                    <Text style={{ color: '#1e40af' }} className="text-sm">
+                      Balance: ${detectedCard.deviceBalance.toFixed(2)}
+                    </Text>
+                  </View>
+                  <Pressable 
+                    onPress={() => setDetectedCard(null)}
+                    className="bg-slate-100 px-3 py-1 rounded-lg"
+                  >
+                    <Text style={{ color: '#64748b' }} className="text-xs font-medium">Clear</Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
+
             {status !== 'success' && (
               <>
                 {/* RFID Card Visual - Non-tappable */}
@@ -311,7 +481,7 @@ export default function SalespersonPay() {
                       {/* Card number */}
                       <View className="absolute bottom-12 left-5">
                         <Text className="text-white font-mono text-base">
-                          7048 •••• •••• 0349
+                          {detectedCard ? `${detectedCard.uid.slice(0, 4)} •••• •••• ${detectedCard.uid.slice(-4)}` : '7048 •••• •••• 0349'}
                         </Text>
                       </View>
                       
@@ -322,16 +492,31 @@ export default function SalespersonPay() {
                         </Text>
                       </View>
                       
-                      {/* Expiry */}
-                      <View className="absolute bottom-4 right-5">
-                        <Text className="text-white/60 text-xs">12/28</Text>
+                      {/* Balance display */}
+                      <View className="absolute top-4 right-4">
+                        {detectedCard && (
+                          <View className="bg-white/20 rounded-lg px-2 py-1">
+                            <Text className="text-white text-xs font-semibold">
+                              ${detectedCard.deviceBalance.toFixed(2)}
+                            </Text>
+                          </View>
+                        )}
                       </View>
 
                       {/* Waiting indicator when idle */}
-                      {status === 'idle' && (
+                      {status === 'idle' && !detectedCard && (
                         <View className="absolute inset-0 items-center justify-center">
                           <View className="bg-white/20 rounded-full px-4 py-2">
                             <Text className="text-white text-sm font-semibold">WAITING FOR CARD</Text>
+                          </View>
+                        </View>
+                      )}
+
+                      {/* Card detected but not processing */}
+                      {status === 'idle' && detectedCard && (
+                        <View className="absolute inset-0 items-center justify-center">
+                          <View className="bg-green-500/30 rounded-full px-4 py-2">
+                            <Text className="text-white text-sm font-semibold">CARD READY</Text>
                           </View>
                         </View>
                       )}
@@ -344,27 +529,57 @@ export default function SalespersonPay() {
                           </View>
                         </View>
                       )}
+
+                      {/* Failed indicator */}
+                      {status === 'failed' && (
+                        <View className="absolute inset-0 items-center justify-center">
+                          <View className="bg-red-500/30 rounded-full px-4 py-2">
+                            <Text className="text-white text-sm font-semibold">PAYMENT FAILED</Text>
+                          </View>
+                        </View>
+                      )}
                     </View>
                   </Animated.View>
 
                   <Text style={{ 
-                    color: status === 'scanning' ? '#3b82f6' : '#6b7280'
+                    color: status === 'scanning' ? '#3b82f6' : status === 'failed' ? '#dc2626' : detectedCard ? '#16a34a' : '#6b7280'
                   }} className="text-lg font-semibold mt-6">
-                    {status === 'scanning' ? 'Processing payment...' : 'Please place your RFID card on the reader'}
+                    {status === 'scanning' ? 'Processing payment...' : 
+                     status === 'failed' ? 'Payment failed - try again' :
+                     detectedCard ? `Card detected: ${detectedCard.uid}` :
+                     'Please place your RFID card on the reader'}
                   </Text>
                   
-                  {status === 'idle' && (
+                  {status === 'idle' && !detectedCard && (
                     <View className="items-center mt-4">
                       <Text className="text-gray-500 text-sm mb-4">
                         Hold your card close to the RFID reader device to complete payment
                       </Text>
-                      <Pressable 
-                        onPress={handleStartPay}
-                        style={{ backgroundColor: primaryNavy }}
-                        className="px-6 py-3 rounded-xl"
-                      >
-                        <Text className="text-white font-bold">Simulate Card Placement</Text>
-                      </Pressable>
+                      {!isWebSocketConnected && (
+                        <Text className="text-red-500 text-sm mb-4">
+                          ⚠️ RFID system is offline. Please check connection.
+                        </Text>
+                      )}
+                    </View>
+                  )}
+
+                  {status === 'idle' && detectedCard && (
+                    <View className="items-center mt-4">
+                      <Text className="text-green-600 text-sm mb-2">
+                        ✅ Card detected and ready for payment
+                      </Text>
+                      <Text className="text-gray-500 text-sm mb-4">
+                        Balance: ${detectedCard.deviceBalance.toFixed(2)} | Required: ${(getTotalPrice() / 100).toFixed(2)}
+                      </Text>
+                      {detectedCard.deviceBalance >= (getTotalPrice() / 100) ? (
+                        <Text className="text-green-600 text-sm font-semibold">
+                          ✅ Sufficient balance - Payment will process automatically
+                        </Text>
+                      ) : (
+                        <Text className="text-red-500 text-sm font-semibold">
+                          ❌ Insufficient balance - Need ${((getTotalPrice() / 100) - detectedCard.deviceBalance).toFixed(2)} more
+                        </Text>
+                      )}
                     </View>
                   )}
                   
@@ -372,6 +587,24 @@ export default function SalespersonPay() {
                     <Text className="text-blue-500 text-sm mt-2">
                       Please wait while we process your payment
                     </Text>
+                  )}
+
+                  {status === 'failed' && (
+                    <View className="items-center mt-4">
+                      <Text className="text-red-500 text-sm mb-4">
+                        Payment could not be processed. Please try again or use a different card.
+                      </Text>
+                      <Pressable 
+                        onPress={() => {
+                          setStatus('idle');
+                          setDetectedCard(null);
+                        }}
+                        style={{ backgroundColor: primaryNavy }}
+                        className="px-6 py-3 rounded-xl"
+                      >
+                        <Text className="text-white font-bold">Try Again</Text>
+                      </Pressable>
+                    </View>
                   )}
                 </View>
               </>
@@ -411,7 +644,9 @@ export default function SalespersonPay() {
             <View className="border-t border-gray-100 pt-4">
               <View className="flex-row justify-between mb-2">
                 <Text className="text-gray-600">Transaction ID:</Text>
-                <Text style={{ color: primaryNavy }} className="font-mono text-sm">TXN-{Date.now().toString().slice(-8)}</Text>
+                <Text style={{ color: primaryNavy }} className="font-mono text-sm">
+                  {paymentResult?.transactionId || `TXN-${Date.now().toString().slice(-8)}`}
+                </Text>
               </View>
               <View className="flex-row justify-between mb-2">
                 <Text className="text-gray-600">Date & Time:</Text>
@@ -419,7 +654,21 @@ export default function SalespersonPay() {
               </View>
               <View className="flex-row justify-between mb-2">
                 <Text className="text-gray-600">Payment Method:</Text>
-                <Text style={{ color: primaryNavy }} className="text-sm">RFID Card ••••0349</Text>
+                <Text style={{ color: primaryNavy }} className="text-sm">
+                  RFID Card {detectedCard ? `••••${detectedCard.uid.slice(-4)}` : '••••0349'}
+                </Text>
+              </View>
+              <View className="flex-row justify-between mb-2">
+                <Text className="text-gray-600">Previous Balance:</Text>
+                <Text style={{ color: primaryNavy }} className="text-sm">
+                  ${paymentResult?.previousBalance?.toFixed(2) || detectedCard?.deviceBalance?.toFixed(2) || '0.00'}
+                </Text>
+              </View>
+              <View className="flex-row justify-between mb-2">
+                <Text className="text-gray-600">New Balance:</Text>
+                <Text style={{ color: primaryNavy }} className="text-sm">
+                  ${paymentResult?.newBalance?.toFixed(2) || '0.00'}
+                </Text>
               </View>
               <View className="flex-row justify-between mb-2">
                 <Text className="text-gray-600">Cashier:</Text>
