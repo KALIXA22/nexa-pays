@@ -477,7 +477,7 @@ export default function AgentScanScreen() {
           )}
 
           {/* No Cards Message */}
-          {!isLoading && userCards.length === 0 && (
+          {!isLoading && userCards.length === 0 && !lastScannedCard && !scanResult && (
             <View className="mb-8 bg-blue-50 p-6 rounded-2xl border border-blue-200">
               <View className="flex-row items-start">
                 <View className="bg-blue-100 p-3 rounded-xl mr-4">
