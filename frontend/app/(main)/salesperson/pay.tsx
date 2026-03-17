@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, Pressable, Alert, Image } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, Image, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
@@ -16,6 +16,7 @@ import { StorageService } from '../../../services/storage';
 import { User, apiService } from '../../../services/api';
 import { webSocketService, CardScannedEvent } from '../../../services/websocket';
 import { useCart } from '../../../contexts/CartContext';
+import RNFS from 'react-native-fs';
 
 export default function SalespersonPay() {
   const router = useRouter();
@@ -183,7 +184,7 @@ export default function SalespersonPay() {
       setStatus('failed');
       Alert.alert(
         '❌ Payment Failed',
-        `Failed to process payment for card ${cardData.uid}.\n\nError: ${error.message || 'Unknown error'}\n\nPlease try again.`,
+        `Failed to process payment for card ${cardData.uid}.\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease try again.`,
         [
           {
             text: 'Retry',
@@ -779,7 +780,7 @@ export default function SalespersonPay() {
                                 </Text>
                               </View>
                             </View>
-                          </div>
+                          </View>
                         </View>
 
                         {detectedCard.deviceBalance >= (getTotalPrice() / 100) ? (
@@ -973,9 +974,9 @@ export default function SalespersonPay() {
                 <Pressable 
                   onPress={async () => {
                     try {
-                      // Create detailed receipt data
+                      // Create detailed receipt data with real payment information
                       const receiptData = {
-                        transactionId: `TXN-${Date.now().toString().slice(-8)}`,
+                        transactionId: paymentResult?.transactionId || `TXN-${Date.now().toString().slice(-8)}`,
                         date: new Date().toLocaleDateString('en-US', { 
                           weekday: 'long', 
                           year: 'numeric', 
@@ -988,6 +989,9 @@ export default function SalespersonPay() {
                           hour12: true 
                         }),
                         cashier: currentUser?.username || 'Sales Pro',
+                        cardUID: detectedCard?.uid || 'Unknown',
+                        previousBalance: paymentResult?.previousBalance || detectedCard?.deviceBalance || 0,
+                        newBalance: paymentResult?.newBalance || 0,
                         items: displayItems.map(item => ({
                           name: item.name,
                           quantity: item.quantity,
@@ -995,9 +999,8 @@ export default function SalespersonPay() {
                           totalPrice: (item.totalPrice / 100).toFixed(2)
                         })),
                         subtotal: (getTotalPrice() / 100).toFixed(2),
-                        tax: ((getTotalPrice() * 0.1) / 100).toFixed(2),
-                        totalAmount: ((getTotalPrice() * 1.1) / 100).toFixed(2),
-                        paymentMethod: 'RFID Card ••••0349',
+                        totalAmount: (getTotalPrice() / 100).toFixed(2),
+                        paymentMethod: `RFID Card ••••${detectedCard?.uid?.slice(-4) || '0000'}`,
                         location: 'Nexa Luxury Vehicles',
                         address: '123 Premium Drive, Luxury District'
                       };
@@ -1024,7 +1027,6 @@ ${receiptData.items.map(item =>
 
 ═══════════════════════════════════
 Subtotal:                   $${receiptData.subtotal}
-Tax (10%):                  $${receiptData.tax}
 TOTAL:                      $${receiptData.totalAmount}
 
 Payment Method: ${receiptData.paymentMethod}
@@ -1034,9 +1036,24 @@ Payment Method: ${receiptData.paymentMethod}
 ═══════════════════════════════════
                       `;
                       
-                      // For now, show detailed success message
+                      // Determine the correct directory based on platform
+                      const downloadDir = Platform.OS === 'android' 
+                        ? RNFS.DownloadDirectoryPath 
+                        : RNFS.DocumentDirectoryPath;
+                      
+                      // Create filename with timestamp
+                      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                      const filename = `Nexa_Receipt_${receiptData.transactionId}_${timestamp}.txt`;
+                      const filePath = `${downloadDir}/${filename}`;
+                      
+                      // Write the receipt to file
+                      await RNFS.writeFile(filePath, receiptText, 'utf8');
+                      
+                      console.log('✅ Receipt saved to:', filePath);
+                      
+                      // Show success message with file location
                       Alert.alert(
-                        'Receipt Generated Successfully!', 
+                        '✅ Receipt Downloaded!', 
                         `Receipt details:\n\n📄 Transaction: ${receiptData.transactionId}\n💰 Total: $${receiptData.totalAmount}\n📅 ${receiptData.date}\n🕐 ${receiptData.time}\n\nReceipt has been prepared for download.`,
                         [
                           { 
@@ -1049,7 +1066,12 @@ Payment Method: ${receiptData.paymentMethod}
                         ]
                       );
                     } catch (error) {
-                      Alert.alert('Download Failed', 'Unable to download receipt. Please try again.');
+                      console.error('❌ Receipt download error:', error);
+                      Alert.alert(
+                        'Download Failed', 
+                        `Unable to save receipt to device storage.\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease check storage permissions and try again.`,
+                        [{ text: 'OK' }]
+                      );
                     }
                   }}
                   className="flex-1 bg-gray-100 py-4 rounded-xl flex-row items-center justify-center mr-3"
