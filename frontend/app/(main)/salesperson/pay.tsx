@@ -552,223 +552,317 @@ export default function SalespersonPay() {
 
             {status !== 'success' && (
               <>
-                {/* RFID Card Visual - Non-tappable */}
+                {/* RFID Scanner Area with Corner Framers */}
                 <View className="items-center py-8">
-                  <Animated.View style={[animatedPulseStyle]}>
-                    <View 
-                      style={{ 
-                        backgroundColor: status === 'scanning' ? '#1e40af' : primaryNavy,
-                        width: 200,
-                        height: 120,
-                        borderRadius: 16,
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 4 },
-                        shadowOpacity: 0.1,
-                        shadowRadius: 8,
-                        elevation: 4
-                      }}
-                      className="items-center justify-center relative overflow-hidden"
-                    >
-                      {/* Background gradient */}
+                  {/* Scanner Frame with Corner Framers */}
+                  <View className="relative">
+                    {/* Corner Framers */}
+                    <View className="absolute -top-2 -left-2 w-6 h-6 border-l-4 border-t-4 border-blue-500 rounded-tl-lg" />
+                    <View className="absolute -top-2 -right-2 w-6 h-6 border-r-4 border-t-4 border-blue-500 rounded-tr-lg" />
+                    <View className="absolute -bottom-2 -left-2 w-6 h-6 border-l-4 border-b-4 border-blue-500 rounded-bl-lg" />
+                    <View className="absolute -bottom-2 -right-2 w-6 h-6 border-r-4 border-b-4 border-blue-500 rounded-br-lg" />
+                    
+                    {/* Scanning Waves Animation */}
+                    {status === 'scanning' && (
+                      <>
+                        <Animated.View 
+                          style={[
+                            {
+                              position: 'absolute',
+                              top: -20,
+                              left: -20,
+                              right: -20,
+                              bottom: -20,
+                              borderRadius: 20,
+                              borderWidth: 2,
+                              borderColor: '#3b82f6',
+                              opacity: 0.3
+                            },
+                            animatedPulseStyle
+                          ]} 
+                        />
+                        <Animated.View 
+                          style={[
+                            {
+                              position: 'absolute',
+                              top: -30,
+                              left: -30,
+                              right: -30,
+                              bottom: -30,
+                              borderRadius: 25,
+                              borderWidth: 2,
+                              borderColor: '#60a5fa',
+                              opacity: 0.2
+                            },
+                            { ...animatedPulseStyle, transform: [{ scale: pulseScale.value * 1.1 }] }
+                          ]} 
+                        />
+                      </>
+                    )}
+
+                    {/* Card Visual */}
+                    <Animated.View style={[animatedPulseStyle]}>
                       <View 
                         style={{ 
-                          backgroundColor: 'rgba(255,255,255,0.1)',
-                          width: 100,
-                          height: 100,
-                          borderRadius: 50,
-                          position: 'absolute',
-                          top: -20,
-                          right: -20
+                          backgroundColor: detectedCard ? '#1e40af' : (status === 'scanning' ? '#3b82f6' : primaryNavy),
+                          width: 240,
+                          height: 150,
+                          borderRadius: 20,
+                          shadowColor: '#000',
+                          shadowOffset: { width: 0, height: 8 },
+                          shadowOpacity: 0.15,
+                          shadowRadius: 16,
+                          elevation: 8
                         }}
-                      />
-                      
-                      {/* Card chip */}
-                      <View 
-                        style={{ 
-                          backgroundColor: '#FFD700',
-                          width: 32,
-                          height: 24,
-                          borderRadius: 4,
-                          position: 'absolute',
-                          top: 20,
-                          left: 20
-                        }}
-                      />
-                      
-                      {/* Card number */}
-                      <View className="absolute bottom-12 left-5">
-                        <Text className="text-white font-mono text-base">
-                          {detectedCard ? `${detectedCard.uid.slice(0, 4)} •••• •••• ${detectedCard.uid.slice(-4)}` : '7048 •••• •••• 0349'}
-                        </Text>
+                        className="items-center justify-center relative overflow-hidden"
+                      >
+                        {/* Background gradient circles */}
+                        <View 
+                          style={{ 
+                            backgroundColor: 'rgba(255,255,255,0.1)',
+                            width: 120,
+                            height: 120,
+                            borderRadius: 60,
+                            position: 'absolute',
+                            top: -30,
+                            right: -30
+                          }}
+                        />
+                        <View 
+                          style={{ 
+                            backgroundColor: 'rgba(255,255,255,0.05)',
+                            width: 80,
+                            height: 80,
+                            borderRadius: 40,
+                            position: 'absolute',
+                            bottom: -20,
+                            left: -20
+                          }}
+                        />
+                        
+                        {/* Card chip */}
+                        <View 
+                          style={{ 
+                            backgroundColor: '#FFD700',
+                            width: 36,
+                            height: 28,
+                            borderRadius: 6,
+                            position: 'absolute',
+                            top: 24,
+                            left: 24,
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: 2 },
+                            shadowOpacity: 0.3,
+                            shadowRadius: 4
+                          }}
+                        >
+                          <View className="absolute inset-1 border border-yellow-600/30 rounded-sm" />
+                          <View className="absolute top-1/2 left-1/2 w-2 h-2 bg-yellow-600/20 rounded-full transform -translate-x-1 -translate-y-1" />
+                        </View>
+                        
+                        {/* VISA logo */}
+                        <View className="absolute top-6 right-6">
+                          <Text className="text-white font-bold text-lg opacity-90">VISA</Text>
+                        </View>
+                        
+                        {/* Card number */}
+                        <View className="absolute bottom-16 left-6">
+                          <Text className="text-white font-mono text-lg tracking-wider">
+                            {detectedCard ? `${detectedCard.uid.slice(0, 4)} •••• •••• ${detectedCard.uid.slice(-4)}` : '•••• •••• •••• ••••'}
+                          </Text>
+                        </View>
+                        
+                        {/* Cardholder name */}
+                        <View className="absolute bottom-6 left-6">
+                          <Text className="text-white/90 text-sm font-semibold uppercase tracking-wide">
+                            {detectedCard ? 'CARD HOLDER' : 'PLACE CARD HERE'}
+                          </Text>
+                        </View>
+                        
+                        {/* Balance/Status indicator */}
+                        <View className="absolute top-6 left-6">
+                          {detectedCard ? (
+                            <View className="bg-white/20 rounded-lg px-3 py-1">
+                              <Text className="text-white text-sm font-bold">
+                                ${detectedCard.deviceBalance.toFixed(2)}
+                              </Text>
+                            </View>
+                          ) : (
+                            <View className="bg-white/10 rounded-lg px-3 py-1">
+                              <Text className="text-white/70 text-xs font-semibold">
+                                {status === 'scanning' ? 'SCANNING...' : 'WAITING'}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+
+                        {/* Center status indicator */}
+                        <View className="absolute inset-0 items-center justify-center">
+                          {status === 'idle' && !detectedCard && (
+                            <View className="bg-white/20 rounded-2xl px-6 py-3 border border-white/30">
+                              <Text className="text-white text-lg font-bold text-center">TAP CARD</Text>
+                            </View>
+                          )}
+
+                          {status === 'scanning' && (
+                            <View className="bg-blue-500/30 rounded-2xl px-6 py-3 border border-blue-300/50">
+                              <Text className="text-white text-lg font-bold text-center">SCANNING</Text>
+                            </View>
+                          )}
+
+                          {status === 'failed' && (
+                            <View className="bg-red-500/30 rounded-2xl px-6 py-3 border border-red-300/50">
+                              <Text className="text-white text-lg font-bold text-center">FAILED</Text>
+                            </View>
+                          )}
+                        </View>
                       </View>
-                      
-                      {/* Cardholder name */}
-                      <View className="absolute bottom-4 left-5">
-                        <Text className="text-white/80 text-xs uppercase">
-                          CARD HOLDER
+                    </Animated.View>
+                  </View>
+
+                  {/* Status Text and Actions */}
+                  <View className="mt-8 w-full max-w-sm">
+                    {status === 'idle' && !detectedCard && (
+                      <View className="items-center">
+                        <Text style={{ color: primaryNavy }} className="text-xl font-bold mb-2">
+                          Ready for Payment
                         </Text>
-                      </View>
-                      
-                      {/* Balance display */}
-                      <View className="absolute top-4 right-4">
-                        {detectedCard && (
-                          <View className="bg-white/20 rounded-lg px-2 py-1">
-                            <Text className="text-white text-xs font-semibold">
-                              ${detectedCard.deviceBalance.toFixed(2)}
+                        <Text className="text-gray-500 text-center mb-6">
+                          Place your RFID card within the scanner frame to detect it
+                        </Text>
+                        {!isWebSocketConnected && (
+                          <View className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4 w-full">
+                            <Text className="text-red-600 font-semibold text-center">
+                              ⚠️ RFID System Offline
                             </Text>
                           </View>
                         )}
+                        <Pressable 
+                          onPress={() => {
+                            setIsCheckoutMode(false);
+                            setDetectedCard(null);
+                            setStatus('idle');
+                          }}
+                          className="bg-gray-100 px-8 py-3 rounded-xl"
+                        >
+                          <Text style={{ color: primaryNavy }} className="font-bold">Cancel Payment</Text>
+                        </Pressable>
                       </View>
+                    )}
 
-                      {/* Waiting indicator when idle */}
-                      {status === 'idle' && !detectedCard && (
-                        <View className="absolute inset-0 items-center justify-center">
-                          <View className="bg-white/20 rounded-full px-4 py-2">
-                            <Text className="text-white text-sm font-semibold">WAITING FOR CARD</Text>
+                    {status === 'idle' && detectedCard && (
+                      <View className="items-center">
+                        <View className="bg-green-50 border border-green-200 rounded-2xl p-6 mb-6 w-full">
+                          <View className="flex-row items-center justify-center mb-4">
+                            <View className="w-3 h-3 bg-green-500 rounded-full mr-3" />
+                            <Text className="text-green-700 font-bold text-lg">Card Detected</Text>
                           </View>
+                          
+                          <View className="space-y-3">
+                            <View className="flex-row justify-between">
+                              <Text className="text-gray-600 font-medium">Card ID:</Text>
+                              <Text className="text-green-700 font-bold">{detectedCard.uid}</Text>
+                            </View>
+                            <View className="flex-row justify-between">
+                              <Text className="text-gray-600 font-medium">Available:</Text>
+                              <Text className="text-green-700 font-bold">${detectedCard.deviceBalance.toFixed(2)}</Text>
+                            </View>
+                            <View className="flex-row justify-between">
+                              <Text className="text-gray-600 font-medium">Required:</Text>
+                              <Text style={{ color: primaryNavy }} className="font-bold">${(getTotalPrice() / 100).toFixed(2)}</Text>
+                            </View>
+                            <View className="border-t border-green-200 pt-3">
+                              <View className="flex-row justify-between">
+                                <Text className="text-gray-600 font-medium">Status:</Text>
+                                <Text className={`font-bold ${detectedCard.deviceBalance >= (getTotalPrice() / 100) ? 'text-green-600' : 'text-red-600'}`}>
+                                  {detectedCard.deviceBalance >= (getTotalPrice() / 100) ? '✅ Sufficient' : '❌ Insufficient'}
+                                </Text>
+                              </View>
+                            </View>
+                          </div>
                         </View>
-                      )}
 
-                      {/* Card detected but not processing */}
-                      {status === 'idle' && detectedCard && (
-                        <View className="absolute inset-0 items-center justify-center">
-                          <View className="bg-green-500/30 rounded-full px-4 py-2">
-                            <Text className="text-white text-sm font-semibold">CARD READY</Text>
+                        {detectedCard.deviceBalance >= (getTotalPrice() / 100) ? (
+                          <View className="w-full space-y-3">
+                            <Pressable 
+                              onPress={confirmPayment}
+                              style={{ backgroundColor: '#3b82f6' }}
+                              className="w-full py-4 rounded-2xl shadow-lg"
+                            >
+                              <Text className="text-white font-bold text-lg text-center">Confirm Payment</Text>
+                            </Pressable>
+                            <Pressable 
+                              onPress={() => setDetectedCard(null)}
+                              className="w-full bg-gray-100 py-3 rounded-xl"
+                            >
+                              <Text style={{ color: primaryNavy }} className="font-semibold text-center">Use Different Card</Text>
+                            </Pressable>
                           </View>
-                        </View>
-                      )}
-
-                      {/* Processing indicator */}
-                      {status === 'scanning' && (
-                        <View className="absolute inset-0 items-center justify-center">
-                          <View className="bg-blue-500/30 rounded-full px-4 py-2">
-                            <Text className="text-white text-sm font-semibold">PROCESSING...</Text>
+                        ) : (
+                          <View className="w-full space-y-3">
+                            <View className="bg-red-50 border border-red-200 rounded-xl p-4">
+                              <Text className="text-red-600 font-semibold text-center mb-2">
+                                Insufficient Balance
+                              </Text>
+                              <Text className="text-red-500 text-sm text-center">
+                                Need ${((getTotalPrice() / 100) - detectedCard.deviceBalance).toFixed(2)} more to complete this transaction
+                              </Text>
+                            </View>
+                            <View className="flex-row space-x-3">
+                              <Pressable 
+                                onPress={() => setDetectedCard(null)}
+                                className="flex-1 bg-gray-100 py-3 rounded-xl"
+                              >
+                                <Text style={{ color: primaryNavy }} className="font-semibold text-center">Try Another</Text>
+                              </Pressable>
+                              <Pressable 
+                                onPress={() => {
+                                  setIsCheckoutMode(false);
+                                  setDetectedCard(null);
+                                }}
+                                style={{ backgroundColor: '#dc2626' }}
+                                className="flex-1 py-3 rounded-xl"
+                              >
+                                <Text className="text-white font-semibold text-center">Cancel</Text>
+                              </Pressable>
+                            </View>
                           </View>
-                        </View>
-                      )}
-
-                      {/* Failed indicator */}
-                      {status === 'failed' && (
-                        <View className="absolute inset-0 items-center justify-center">
-                          <View className="bg-red-500/30 rounded-full px-4 py-2">
-                            <Text className="text-white text-sm font-semibold">PAYMENT FAILED</Text>
-                          </View>
-                        </View>
-                      )}
-                    </View>
-                  </Animated.View>
-
-                  <Text style={{ 
-                    color: status === 'scanning' ? '#3b82f6' : status === 'failed' ? '#dc2626' : detectedCard ? '#16a34a' : '#6b7280'
-                  }} className="text-lg font-semibold mt-6">
-                    {status === 'scanning' ? 'Processing payment...' : 
-                     status === 'failed' ? 'Payment failed - try again' :
-                     detectedCard ? `Card detected: ${detectedCard.uid}` :
-                     'Please place your RFID card on the reader'}
-                  </Text>
-                  
-                  {status === 'idle' && !detectedCard && (
-                    <View className="items-center mt-4">
-                      <Text className="text-gray-500 text-sm mb-4">
-                        Hold your card close to the RFID reader device to detect it
-                      </Text>
-                      {!isWebSocketConnected && (
-                        <Text className="text-red-500 text-sm mb-4">
-                          ⚠️ RFID system is offline. Please check connection.
+                        )}
+                      </View>
+                    )}
+                    
+                    {status === 'scanning' && (
+                      <View className="items-center">
+                        <Text style={{ color: '#3b82f6' }} className="text-xl font-bold mb-2">
+                          Processing Payment
                         </Text>
-                      )}
-                      <Pressable 
-                        onPress={() => {
-                          setIsCheckoutMode(false);
-                          setDetectedCard(null);
-                          setStatus('idle');
-                        }}
-                        className="bg-gray-100 px-6 py-3 rounded-xl"
-                      >
-                        <Text style={{ color: primaryNavy }} className="font-bold">Cancel Payment</Text>
-                      </Pressable>
-                    </View>
-                  )}
+                        <Text className="text-gray-500 text-center">
+                          Please wait while we process your transaction...
+                        </Text>
+                      </View>
+                    )}
 
-                  {status === 'idle' && detectedCard && (
-                    <View className="items-center mt-4">
-                      <Text className="text-green-600 text-sm mb-2">
-                        ✅ Card detected and ready for payment
-                      </Text>
-                      <Text className="text-gray-500 text-sm mb-4">
-                        Balance: ${detectedCard.deviceBalance.toFixed(2)} | Required: ${(getTotalPrice() / 100).toFixed(2)}
-                      </Text>
-                      {detectedCard.deviceBalance >= (getTotalPrice() / 100) ? (
-                        <View className="items-center">
-                          <Text className="text-green-600 text-sm font-semibold mb-4">
-                            ✅ Sufficient balance available
-                          </Text>
-                          <Pressable 
-                            onPress={confirmPayment}
-                            style={{ backgroundColor: '#16a34a' }}
-                            className="px-8 py-4 rounded-xl shadow-lg"
-                          >
-                            <Text className="text-white font-bold text-lg">Confirm Payment</Text>
-                          </Pressable>
-                        </View>
-                      ) : (
-                        <View className="items-center">
-                          <Text className="text-red-500 text-sm font-semibold mb-4">
-                            ❌ Insufficient balance - Need ${((getTotalPrice() / 100) - detectedCard.deviceBalance).toFixed(2)} more
-                          </Text>
-                          <View className="flex-row">
-                            <Pressable 
-                              onPress={() => {
-                                setDetectedCard(null);
-                              }}
-                              className="bg-gray-100 px-6 py-3 rounded-xl mr-3"
-                            >
-                              <Text style={{ color: primaryNavy }} className="font-bold">Try Another Card</Text>
-                            </Pressable>
-                            <Pressable 
-                              onPress={() => {
-                                Alert.alert(
-                                  'Insufficient Balance',
-                                  'This card does not have enough balance. Please:\n\n1. Use a different card with sufficient balance\n2. Top-up this card first\n3. Cancel the transaction',
-                                  [
-                                    { text: 'OK' }
-                                  ]
-                                );
-                              }}
-                              style={{ backgroundColor: '#dc2626' }}
-                              className="px-6 py-3 rounded-xl"
-                            >
-                              <Text className="text-white font-bold">Details</Text>
-                            </Pressable>
-                          </View>
-                        </View>
-                      )}
-                    </View>
-                  )}
-                  
-                  {status === 'scanning' && (
-                    <Text className="text-blue-500 text-sm mt-2">
-                      Please wait while we process your payment
-                    </Text>
-                  )}
-
-                  {status === 'failed' && (
-                    <View className="items-center mt-4">
-                      <Text className="text-red-500 text-sm mb-4">
-                        Payment could not be processed. Please try again or use a different card.
-                      </Text>
-                      <Pressable 
-                        onPress={() => {
-                          setStatus('idle');
-                          setDetectedCard(null);
-                        }}
-                        style={{ backgroundColor: primaryNavy }}
-                        className="px-6 py-3 rounded-xl"
-                      >
-                        <Text className="text-white font-bold">Try Again</Text>
-                      </Pressable>
-                    </View>
-                  )}
+                    {status === 'failed' && (
+                      <View className="items-center">
+                        <Text className="text-red-600 text-xl font-bold mb-2">
+                          Payment Failed
+                        </Text>
+                        <Text className="text-gray-500 text-center mb-6">
+                          Transaction could not be completed. Please try again.
+                        </Text>
+                        <Pressable 
+                          onPress={() => {
+                            setStatus('idle');
+                            setDetectedCard(null);
+                          }}
+                          style={{ backgroundColor: primaryNavy }}
+                          className="px-8 py-3 rounded-xl"
+                        >
+                          <Text className="text-white font-bold">Try Again</Text>
+                        </Pressable>
+                      </View>
+                    )}
+                  </View>
                 </View>
               </>
             )}
