@@ -113,6 +113,7 @@ export default function SalespersonPay() {
     
     await processPayment(detectedCard);
   };
+
   const processPayment = async (cardData: CardScannedEvent) => {
     setStatus('scanning');
     
@@ -132,9 +133,9 @@ export default function SalespersonPay() {
         setStatus('failed');
         Alert.alert(
           '❌ Insufficient Balance',
-          `Card Balance: $${cardData.deviceBalance.toFixed(2)}\n` +
-          `Required Amount: $${totalAmountDollars.toFixed(2)}\n` +
-          `Shortage: $${(totalAmountDollars - cardData.deviceBalance).toFixed(2)}\n\n` +
+          `Card Balance: ${cardData.deviceBalance.toFixed(2)}\n` +
+          `Required Amount: ${totalAmountDollars.toFixed(2)}\n` +
+          `Shortage: ${(totalAmountDollars - cardData.deviceBalance).toFixed(2)}\n\n` +
           `Please top-up the card or use a different payment method.`,
           [
             {
@@ -168,9 +169,9 @@ export default function SalespersonPay() {
         Alert.alert(
           '✅ Payment Successful!',
           `Card: ${cardData.uid}\n` +
-          `Amount Paid: $${totalAmountDollars.toFixed(2)}\n` +
-          `Previous Balance: $${cardData.deviceBalance.toFixed(2)}\n` +
-          `New Balance: $${response.newBalance.toFixed(2)}`,
+          `Amount Paid: ${totalAmountDollars.toFixed(2)}\n` +
+          `Previous Balance: ${cardData.deviceBalance.toFixed(2)}\n` +
+          `New Balance: ${response.newBalance.toFixed(2)}`,
           [{ text: 'OK' }]
         );
         
@@ -213,6 +214,14 @@ export default function SalespersonPay() {
       );
     } else {
       pulseScale.value = 1;
+    }
+  }, [status]);
+
+  useEffect(() => {
+    if (status === 'success') {
+      successScale.value = withTiming(1, { duration: 500 });
+    } else {
+      successScale.value = 0;
     }
   }, [status]);
 
@@ -261,6 +270,48 @@ export default function SalespersonPay() {
     transform: [{ scale: successScale.value }],
     opacity: successScale.value,
   }));
+
+  // Generate and download receipt
+  const downloadReceipt = async () => {
+    if (!paymentResult || !detectedCard) return;
+
+    const receiptContent = `
+NEXA PAY - PAYMENT RECEIPT
+========================
+
+Transaction ID: ${paymentResult.transactionId || 'N/A'}
+Date: ${new Date().toLocaleString()}
+Salesperson: ${currentUser?.username || 'Unknown'}
+
+CARD DETAILS:
+Card UID: ${detectedCard.uid}
+Previous Balance: $${detectedCard.deviceBalance.toFixed(2)}
+New Balance: $${paymentResult.newBalance.toFixed(2)}
+
+ITEMS PURCHASED:
+${displayItems.map(item => 
+  `${item.name} x${item.quantity} - $${(item.totalPrice / 100).toFixed(2)}`
+).join('\n')}
+
+PAYMENT SUMMARY:
+Subtotal: $${(getTotalPrice() / 100).toFixed(2)}
+Total Items: ${getTotalItems()}
+Amount Paid: $${(getTotalPrice() / 100).toFixed(2)}
+
+Thank you for using Nexa Pay!
+========================
+    `.trim();
+
+    try {
+      await Share.share({
+        message: receiptContent,
+        title: 'Payment Receipt'
+      });
+    } catch (error) {
+      console.error('Error sharing receipt:', error);
+      Alert.alert('Error', 'Failed to save receipt. Please try again.');
+    }
+  };
 
   // If cart is empty, show empty cart message
   if (items.length === 0 && status === 'idle') {
@@ -390,7 +441,7 @@ export default function SalespersonPay() {
         {isCheckoutMode && (
           <View className="mx-6 mt-4 bg-white rounded-2xl p-6 shadow-sm">
             <View className="flex-row items-center mb-4">
-              <View style={{ backgroundColor: status === 'success' ? '#10b981' : '#3b82f6' }} className="w-10 h-10 rounded-full items-center justify-center mr-3">
+              <View style={{ backgroundColor: status === 'success' ? '#3b82f6' : '#3b82f6' }} className="w-10 h-10 rounded-full items-center justify-center mr-3">
                 {status === 'success' ? (
                   <CheckCircle2 size={20} color="white" />
                 ) : (
@@ -419,7 +470,7 @@ export default function SalespersonPay() {
               </View>
             )}
 
-            {/* Detected Card Info - Redesigned with Blue Theme */}
+            {/* Detected Card Info - Side by Side Layout */}
             {detectedCard && status !== 'success' && (
               <View className="mb-4">
                 <View 
@@ -429,8 +480,6 @@ export default function SalespersonPay() {
                     borderWidth: 2,
                     borderRadius: 20,
                     padding: 20,
-                    position: 'relative',
-                    overflow: 'hidden',
                     shadowColor: '#000',
                     shadowOffset: { width: 0, height: 4 },
                     shadowOpacity: 0.1,
@@ -438,33 +487,7 @@ export default function SalespersonPay() {
                     elevation: 4
                   }}
                 >
-                  {/* Gradient Background Decoration */}
-                  <View 
-                    style={{ 
-                      position: 'absolute',
-                      top: -30,
-                      right: -30,
-                      width: 100,
-                      height: 100,
-                      borderRadius: 50,
-                      backgroundColor: detectedCard.deviceBalance >= (getTotalPrice() / 100) ? '#3b82f6' : '#f87171',
-                      opacity: 0.08
-                    }}
-                  />
-                  <View 
-                    style={{ 
-                      position: 'absolute',
-                      bottom: -20,
-                      left: -20,
-                      width: 60,
-                      height: 60,
-                      borderRadius: 30,
-                      backgroundColor: detectedCard.deviceBalance >= (getTotalPrice() / 100) ? '#1d4ed8' : '#ef4444',
-                      opacity: 0.05
-                    }}
-                  />
-                  
-                  {/* Header Section */}
+                  {/* Header */}
                   <View className="flex-row items-center justify-between mb-5">
                     <View className="flex-row items-center">
                       <View 
@@ -524,129 +547,305 @@ export default function SalespersonPay() {
                       </Text>
                     </Pressable>
                   </View>
-                  
-                  {/* Balance Information Cards */}
-                  <View className="flex-row justify-between mb-5">
+
+                  {/* Side-by-side layout: Card Info (Left) + Card Frame & Actions (Right) */}
+                  <View className="flex-row" style={{ gap: 16 }}>
+                    {/* Left Side - Card Information */}
                     <View 
                       style={{
                         backgroundColor: 'rgba(255, 255, 255, 0.7)',
                         borderRadius: 16,
                         padding: 16,
-                        flex: 0.48,
+                        flex: 1,
                         borderWidth: 1,
                         borderColor: 'rgba(148, 163, 184, 0.2)'
                       }}
                     >
-                      <Text style={{ color: '#64748b', fontSize: 12, fontWeight: '500', marginBottom: 4 }}>
-                        Available Balance
+                      <Text style={{ color: '#1e40af', fontSize: 16, fontWeight: '700', marginBottom: 12 }}>
+                        Card Ready
                       </Text>
-                      <Text 
-                        style={{ 
-                          color: detectedCard.deviceBalance >= (getTotalPrice() / 100) ? '#1e40af' : '#dc2626',
-                          fontSize: 24,
-                          fontWeight: '800'
+                      
+                      <View style={{ gap: 12 }}>
+                        <View 
+                          style={{
+                            backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                            borderRadius: 10,
+                            padding: 12,
+                            flexDirection: 'row',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                          }}
+                        >
+                          <Text style={{ color: '#64748b', fontSize: 13, fontWeight: '500' }}>Balance:</Text>
+                          <Text style={{ color: '#1e40af', fontSize: 13, fontWeight: '700' }}>${detectedCard.deviceBalance.toFixed(2)}</Text>
+                        </View>
+                        
+                        <View 
+                          style={{
+                            backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                            borderRadius: 10,
+                            padding: 12,
+                            flexDirection: 'row',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                          }}
+                        >
+                          <Text style={{ color: '#64748b', fontSize: 13, fontWeight: '500' }}>Required:</Text>
+                          <Text style={{ color: primaryNavy, fontSize: 13, fontWeight: '700' }}>${(getTotalPrice() / 100).toFixed(2)}</Text>
+                        </View>
+                        
+                        <View 
+                          style={{
+                            backgroundColor: detectedCard.deviceBalance >= (getTotalPrice() / 100) 
+                              ? 'rgba(59, 130, 246, 0.1)' 
+                              : 'rgba(248, 113, 113, 0.1)',
+                            borderRadius: 10,
+                            padding: 12,
+                            borderTopWidth: 1,
+                            borderTopColor: 'rgba(148, 163, 184, 0.2)',
+                            marginTop: 4
+                          }}
+                        >
+                          <View className="flex-row justify-between items-center">
+                            <Text style={{ color: '#64748b', fontSize: 13, fontWeight: '500' }}>Status:</Text>
+                            <View className="flex-row items-center">
+                              <View 
+                                style={{
+                                  width: 6,
+                                  height: 6,
+                                  borderRadius: 3,
+                                  backgroundColor: detectedCard.deviceBalance >= (getTotalPrice() / 100) ? '#3b82f6' : '#f87171',
+                                  marginRight: 6
+                                }}
+                              />
+                              <Text 
+                                style={{ 
+                                  color: detectedCard.deviceBalance >= (getTotalPrice() / 100) ? '#1e40af' : '#dc2626',
+                                  fontSize: 13,
+                                  fontWeight: '700'
+                                }}
+                              >
+                                {detectedCard.deviceBalance >= (getTotalPrice() / 100) ? 'Ready' : 'Low'}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Right Side - Card Frame + Payment Actions */}
+                    <View style={{ flex: 1 }}>
+                      {/* Card Frame */}
+                      <View 
+                        style={{
+                          backgroundColor: '#1e40af',
+                          borderRadius: 16,
+                          padding: 16,
+                          marginBottom: 16,
+                          shadowColor: '#1e40af',
+                          shadowOffset: { width: 0, height: 4 },
+                          shadowOpacity: 0.2,
+                          shadowRadius: 8,
+                          elevation: 6,
+                          position: 'relative',
+                          overflow: 'hidden'
                         }}
                       >
-                        ${detectedCard.deviceBalance.toFixed(2)}
-                      </Text>
-                    </View>
-                    
-                    <View 
-                      style={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.7)',
-                        borderRadius: 16,
-                        padding: 16,
-                        flex: 0.48,
-                        borderWidth: 1,
-                        borderColor: 'rgba(148, 163, 184, 0.2)'
-                      }}
-                    >
-                      <Text style={{ color: '#64748b', fontSize: 12, fontWeight: '500', marginBottom: 4 }}>
-                        Required Amount
-                      </Text>
-                      <Text style={{ color: primaryNavy, fontSize: 24, fontWeight: '800' }}>
-                        ${(getTotalPrice() / 100).toFixed(2)}
-                      </Text>
-                    </View>
-                  </View>
-                  
-                  {/* Status Indicator */}
-                  <View 
-                    style={{
-                      backgroundColor: detectedCard.deviceBalance >= (getTotalPrice() / 100) 
-                        ? 'rgba(59, 130, 246, 0.1)' 
-                        : 'rgba(248, 113, 113, 0.1)',
-                      borderRadius: 12,
-                      padding: 16,
-                      borderWidth: 1,
-                      borderColor: detectedCard.deviceBalance >= (getTotalPrice() / 100) 
-                        ? 'rgba(59, 130, 246, 0.2)' 
-                        : 'rgba(248, 113, 113, 0.2)'
-                    }}
-                  >
-                    {detectedCard.deviceBalance >= (getTotalPrice() / 100) ? (
-                      <View className="flex-row items-center">
+                        {/* Card Background Pattern */}
                         <View 
                           style={{
-                            backgroundColor: '#3b82f6',
-                            width: 24,
-                            height: 24,
-                            borderRadius: 12,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            marginRight: 12
+                            position: 'absolute',
+                            top: -20,
+                            right: -20,
+                            width: 80,
+                            height: 80,
+                            borderRadius: 40,
+                            backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                          }}
+                        />
+                        
+                        {/* Card Chip */}
+                        <View 
+                          style={{
+                            backgroundColor: '#FFD700',
+                            width: 28,
+                            height: 22,
+                            borderRadius: 4,
+                            marginBottom: 8,
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: 1 },
+                            shadowOpacity: 0.3,
+                            shadowRadius: 2
                           }}
                         >
-                          <CheckCircle2 size={14} color="white" />
+                          <View style={{ 
+                            position: 'absolute', 
+                            inset: 2, 
+                            borderWidth: 1, 
+                            borderColor: 'rgba(0,0,0,0.1)', 
+                            borderRadius: 2 
+                          }} />
                         </View>
-                        <View className="flex-1">
-                          <Text 
-                            style={{ color: '#1e40af', fontSize: 16, fontWeight: '600', marginBottom: 2 }}
-                          >
-                            Payment Ready
-                          </Text>
-                          <Text 
-                            style={{ color: '#64748b', fontSize: 13, fontWeight: '500' }}
-                          >
-                            Sufficient balance available for this transaction
+                        
+                        {/* Card Number */}
+                        <Text style={{ 
+                          color: 'white', 
+                          fontSize: 14, 
+                          fontWeight: '600', 
+                          letterSpacing: 2,
+                          marginBottom: 8
+                        }}>
+                          {detectedCard.uid.slice(0, 4)} •••• ••••
+                        </Text>
+                        
+                        {/* Card Holder */}
+                        <Text style={{ 
+                          color: 'rgba(255, 255, 255, 0.8)', 
+                          fontSize: 10, 
+                          fontWeight: '500',
+                          marginBottom: 4
+                        }}>
+                          CARD HOLDER
+                        </Text>
+                        
+                        {/* Balance Display */}
+                        <View style={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                          borderRadius: 8,
+                          paddingHorizontal: 8,
+                          paddingVertical: 4,
+                          alignSelf: 'flex-start'
+                        }}>
+                          <Text style={{ 
+                            color: 'white', 
+                            fontSize: 12, 
+                            fontWeight: '700'
+                          }}>
+                            ${detectedCard.deviceBalance.toFixed(2)}
                           </Text>
                         </View>
                       </View>
-                    ) : (
-                      <View className="flex-row items-center">
-                        <View 
-                          style={{
-                            backgroundColor: '#f87171',
-                            width: 24,
-                            height: 24,
+
+                      {/* Payment Actions */}
+                      {detectedCard.deviceBalance >= (getTotalPrice() / 100) ? (
+                        <View style={{ gap: 12 }}>
+                          <Pressable 
+                            onPress={confirmPayment}
+                            style={{ 
+                              backgroundColor: '#3b82f6',
+                              paddingVertical: 16,
+                              borderRadius: 16,
+                              shadowColor: '#3b82f6',
+                              shadowOffset: { width: 0, height: 4 },
+                              shadowOpacity: 0.3,
+                              shadowRadius: 8,
+                              elevation: 6
+                            }}
+                          >
+                            <Text style={{ 
+                              color: 'white', 
+                              fontWeight: '700', 
+                              fontSize: 16, 
+                              textAlign: 'center' 
+                            }}>
+                              Confirm Payment
+                            </Text>
+                          </Pressable>
+                          <Pressable 
+                            onPress={() => setDetectedCard(null)}
+                            style={{
+                              backgroundColor: '#f1f5f9',
+                              paddingVertical: 12,
+                              borderRadius: 12
+                            }}
+                          >
+                            <Text style={{ 
+                              color: primaryNavy, 
+                              fontWeight: '600', 
+                              fontSize: 14, 
+                              textAlign: 'center' 
+                            }}>
+                              Use Another Card
+                            </Text>
+                          </Pressable>
+                        </View>
+                      ) : (
+                        <View style={{ gap: 12 }}>
+                          <View style={{
+                            backgroundColor: '#fef2f2',
+                            borderWidth: 1,
+                            borderColor: '#fecaca',
                             borderRadius: 12,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            marginRight: 12
-                          }}
-                        >
-                          <XCircle size={14} color="white" />
+                            padding: 16
+                          }}>
+                            <Text style={{ 
+                              color: '#dc2626', 
+                              fontWeight: '600', 
+                              fontSize: 14, 
+                              textAlign: 'center',
+                              marginBottom: 4
+                            }}>
+                              Insufficient Balance
+                            </Text>
+                            <Text style={{ 
+                              color: '#991b1b', 
+                              fontSize: 12, 
+                              textAlign: 'center' 
+                            }}>
+                              Need ${((getTotalPrice() / 100) - detectedCard.deviceBalance).toFixed(2)} more
+                            </Text>
+                          </View>
+                          <View className="flex-row" style={{ gap: 8 }}>
+                            <Pressable 
+                              onPress={() => setDetectedCard(null)}
+                              style={{
+                                flex: 1,
+                                backgroundColor: '#f1f5f9',
+                                paddingVertical: 12,
+                                borderRadius: 12
+                              }}
+                            >
+                              <Text style={{ 
+                                color: primaryNavy, 
+                                fontWeight: '600', 
+                                fontSize: 14, 
+                                textAlign: 'center' 
+                              }}>
+                                Try Another
+                              </Text>
+                            </Pressable>
+                            <Pressable 
+                              onPress={() => {
+                                setIsCheckoutMode(false);
+                                setDetectedCard(null);
+                              }}
+                              style={{
+                                flex: 1,
+                                backgroundColor: '#dc2626',
+                                paddingVertical: 12,
+                                borderRadius: 12
+                              }}
+                            >
+                              <Text style={{ 
+                                color: 'white', 
+                                fontWeight: '600', 
+                                fontSize: 14, 
+                                textAlign: 'center' 
+                              }}>
+                                Cancel
+                              </Text>
+                            </Pressable>
+                          </View>
                         </View>
-                        <View className="flex-1">
-                          <Text 
-                            style={{ color: '#dc2626', fontSize: 16, fontWeight: '600', marginBottom: 2 }}
-                          >
-                            Insufficient Balance
-                          </Text>
-                          <Text 
-                            style={{ color: '#64748b', fontSize: 13, fontWeight: '500' }}
-                          >
-                            Need ${((getTotalPrice() / 100) - detectedCard.deviceBalance).toFixed(2)} more to complete payment
-                          </Text>
-                        </View>
-                      </View>
-                    )}
+                      )}
+                    </View>
                   </View>
                 </View>
               </View>
             )}
 
-            {status !== 'success' && (
+            {/* RFID Scanner Area - Only show when no card detected and not success */}
+            {status !== 'success' && !detectedCard && (
               <View>
                 {/* RFID Scanner Area with Corner Framers */}
                 <View className="items-center py-8">
@@ -700,7 +899,7 @@ export default function SalespersonPay() {
                     <Animated.View style={[animatedPulseStyle]}>
                       <View 
                         style={{ 
-                          backgroundColor: detectedCard ? '#1e40af' : (status === 'scanning' ? '#3b82f6' : primaryNavy),
+                          backgroundColor: status === 'scanning' ? '#3b82f6' : primaryNavy,
                           width: 240,
                           height: 150,
                           borderRadius: 20,
@@ -724,17 +923,6 @@ export default function SalespersonPay() {
                             right: -30
                           }}
                         />
-                        <View 
-                          style={{ 
-                            backgroundColor: 'rgba(255,255,255,0.05)',
-                            width: 80,
-                            height: 80,
-                            borderRadius: 40,
-                            position: 'absolute',
-                            bottom: -20,
-                            left: -20
-                          }}
-                        />
                         
                         {/* Card chip */}
                         <View 
@@ -753,48 +941,34 @@ export default function SalespersonPay() {
                           }}
                         >
                           <View className="absolute inset-1 border border-yellow-600/30 rounded-sm" />
-                          <View className="absolute top-1/2 left-1/2 w-2 h-2 bg-yellow-600/20 rounded-full transform -translate-x-1 -translate-y-1" />
-                        </View>
-                        
-                        {/* VISA logo */}
-                        <View className="absolute top-6 right-6">
-                          <Text className="text-white font-bold text-lg opacity-90">VISA</Text>
                         </View>
                         
                         {/* Card number */}
                         <View className="absolute bottom-16 left-6">
                           <Text className="text-white font-mono text-lg tracking-wider">
-                            {detectedCard ? `${detectedCard.uid.slice(0, 4)} •••• •••• ${detectedCard.uid.slice(-4)}` : '•••• •••• •••• ••••'}
+                            •••• •••• •••• ••••
                           </Text>
                         </View>
                         
                         {/* Cardholder name */}
                         <View className="absolute bottom-6 left-6">
                           <Text className="text-white/90 text-sm font-semibold uppercase tracking-wide">
-                            {detectedCard ? 'CARD HOLDER' : 'PLACE CARD HERE'}
+                            PLACE CARD HERE
                           </Text>
                         </View>
                         
-                        {/* Balance/Status indicator */}
+                        {/* Status indicator */}
                         <View className="absolute top-6 left-6">
-                          {detectedCard ? (
-                            <View className="bg-white/20 rounded-lg px-3 py-1">
-                              <Text className="text-white text-sm font-bold">
-                                ${detectedCard.deviceBalance.toFixed(2)}
-                              </Text>
-                            </View>
-                          ) : (
-                            <View className="bg-white/10 rounded-lg px-3 py-1">
-                              <Text className="text-white/70 text-xs font-semibold">
-                                {status === 'scanning' ? 'SCANNING...' : 'WAITING'}
-                              </Text>
-                            </View>
-                          )}
+                          <View className="bg-white/10 rounded-lg px-3 py-1">
+                            <Text className="text-white/70 text-xs font-semibold">
+                              {status === 'scanning' ? 'SCANNING...' : 'WAITING'}
+                            </Text>
+                          </View>
                         </View>
 
                         {/* Center status indicator */}
                         <View className="absolute inset-0 items-center justify-center">
-                          {status === 'idle' && !detectedCard && (
+                          {status === 'idle' && (
                             <View className="bg-white/20 rounded-2xl px-6 py-3 border border-white/30">
                               <Text className="text-white text-lg font-bold text-center">TAP CARD</Text>
                             </View>
@@ -818,7 +992,7 @@ export default function SalespersonPay() {
 
                   {/* Status Text and Actions */}
                   <View className="mt-8 w-full max-w-sm">
-                    {status === 'idle' && !detectedCard && (
+                    {status === 'idle' && (
                       <View className="items-center">
                         <Text style={{ color: primaryNavy }} className="text-xl font-bold mb-2">
                           Ready for Payment
@@ -843,347 +1017,6 @@ export default function SalespersonPay() {
                         >
                           <Text style={{ color: primaryNavy }} className="font-bold">Cancel Payment</Text>
                         </Pressable>
-                      </View>
-                    )}
-
-                    {status === 'idle' && detectedCard && (
-                      <View>
-                        {/* Side-by-side layout: Card Info (Left) + Payment Actions (Right) */}
-                        <View className="flex-row mb-6" style={{ gap: 16 }}>
-                        {/* Left Side - Card Information */}
-                        <View 
-                          style={{
-                            backgroundColor: '#f8fafc',
-                            borderWidth: 2,
-                            borderColor: '#3b82f6',
-                            borderRadius: 20,
-                            padding: 20,
-                            flex: 1,
-                            shadowColor: '#3b82f6',
-                            shadowOffset: { width: 0, height: 4 },
-                            shadowOpacity: 0.1,
-                            shadowRadius: 12,
-                            elevation: 6
-                          }}
-                        >
-                          <View className="flex-row items-center mb-4">
-                            <View 
-                              style={{
-                                width: 10,
-                                height: 10,
-                                backgroundColor: '#3b82f6',
-                                borderRadius: 5,
-                                marginRight: 10,
-                                shadowColor: '#3b82f6',
-                                shadowOffset: { width: 0, height: 2 },
-                                shadowOpacity: 0.4,
-                                shadowRadius: 4
-                              }}
-                            />
-                            <Text style={{ color: '#1e40af', fontSize: 16, fontWeight: '700' }}>
-                              Card Ready
-                            </Text>
-                          </View>
-                          
-                          <View style={{ gap: 12 }}>
-                            <View 
-                              style={{
-                                backgroundColor: 'rgba(59, 130, 246, 0.05)',
-                                borderRadius: 10,
-                                padding: 12,
-                                flexDirection: 'row',
-                                justifyContent: 'space-between',
-                                alignItems: 'center'
-                              }}
-                            >
-                              <Text style={{ color: '#64748b', fontSize: 13, fontWeight: '500' }}>ID:</Text>
-                              <Text style={{ color: '#1e40af', fontSize: 13, fontWeight: '700' }}>{detectedCard.uid}</Text>
-                            </View>
-                            
-                            <View 
-                              style={{
-                                backgroundColor: 'rgba(59, 130, 246, 0.05)',
-                                borderRadius: 10,
-                                padding: 12,
-                                flexDirection: 'row',
-                                justifyContent: 'space-between',
-                                alignItems: 'center'
-                              }}
-                            >
-                              <Text style={{ color: '#64748b', fontSize: 13, fontWeight: '500' }}>Balance:</Text>
-                              <Text style={{ color: '#1e40af', fontSize: 13, fontWeight: '700' }}>${detectedCard.deviceBalance.toFixed(2)}</Text>
-                            </View>
-                            
-                            <View 
-                              style={{
-                                backgroundColor: 'rgba(59, 130, 246, 0.05)',
-                                borderRadius: 10,
-                                padding: 12,
-                                flexDirection: 'row',
-                                justifyContent: 'space-between',
-                                alignItems: 'center'
-                              }}
-                            >
-                              <Text style={{ color: '#64748b', fontSize: 13, fontWeight: '500' }}>Required:</Text>
-                              <Text style={{ color: primaryNavy, fontSize: 13, fontWeight: '700' }}>${(getTotalPrice() / 100).toFixed(2)}</Text>
-                            </View>
-                            
-                            <View 
-                              style={{
-                                backgroundColor: detectedCard.deviceBalance >= (getTotalPrice() / 100) 
-                                  ? 'rgba(59, 130, 246, 0.1)' 
-                                  : 'rgba(248, 113, 113, 0.1)',
-                                borderRadius: 10,
-                                padding: 12,
-                                borderTopWidth: 1,
-                                borderTopColor: 'rgba(148, 163, 184, 0.2)',
-                                marginTop: 4
-                              }}
-                            >
-                              <View className="flex-row justify-between items-center">
-                                <Text style={{ color: '#64748b', fontSize: 13, fontWeight: '500' }}>Status:</Text>
-                                <View className="flex-row items-center">
-                                  <View 
-                                    style={{
-                                      width: 6,
-                                      height: 6,
-                                      borderRadius: 3,
-                                      backgroundColor: detectedCard.deviceBalance >= (getTotalPrice() / 100) ? '#3b82f6' : '#f87171',
-                                      marginRight: 6
-                                    }}
-                                  />
-                                  <Text 
-                                    style={{ 
-                                      color: detectedCard.deviceBalance >= (getTotalPrice() / 100) ? '#1e40af' : '#dc2626',
-                                      fontSize: 13,
-                                      fontWeight: '700'
-                                    }}
-                                  >
-                                    {detectedCard.deviceBalance >= (getTotalPrice() / 100) ? 'Ready' : 'Low'}
-                                  </Text>
-                                </View>
-                              </View>
-                            </View>
-                          </View>
-                        </View>
-
-                        {/* Right Side - Card Frame + Payment Actions */}
-                        <View style={{ flex: 1 }}>
-                          {/* Card Frame */}
-                          <View 
-                            style={{
-                              backgroundColor: '#1e40af',
-                              borderRadius: 16,
-                              padding: 16,
-                              marginBottom: 16,
-                              shadowColor: '#1e40af',
-                              shadowOffset: { width: 0, height: 4 },
-                              shadowOpacity: 0.2,
-                              shadowRadius: 8,
-                              elevation: 6,
-                              position: 'relative',
-                              overflow: 'hidden'
-                            }}
-                          >
-                            {/* Card Background Pattern */}
-                            <View 
-                              style={{
-                                position: 'absolute',
-                                top: -20,
-                                right: -20,
-                                width: 80,
-                                height: 80,
-                                borderRadius: 40,
-                                backgroundColor: 'rgba(255, 255, 255, 0.1)'
-                              }}
-                            />
-                            <View 
-                              style={{
-                                position: 'absolute',
-                                bottom: -15,
-                                left: -15,
-                                width: 60,
-                                height: 60,
-                                borderRadius: 30,
-                                backgroundColor: 'rgba(255, 255, 255, 0.05)'
-                              }}
-                            />
-                            
-                            {/* Card Chip */}
-                            <View 
-                              style={{
-                                backgroundColor: '#FFD700',
-                                width: 28,
-                                height: 22,
-                                borderRadius: 4,
-                                marginBottom: 8,
-                                shadowColor: '#000',
-                                shadowOffset: { width: 0, height: 1 },
-                                shadowOpacity: 0.3,
-                                shadowRadius: 2
-                              }}
-                            >
-                              <View style={{ 
-                                position: 'absolute', 
-                                inset: 2, 
-                                borderWidth: 1, 
-                                borderColor: 'rgba(0,0,0,0.1)', 
-                                borderRadius: 2 
-                              }} />
-                            </View>
-                            
-                            {/* Card Number */}
-                            <Text style={{ 
-                              color: 'white', 
-                              fontSize: 14, 
-                              fontWeight: '600', 
-                              letterSpacing: 2,
-                              marginBottom: 8
-                            }}>
-                              {detectedCard.uid.slice(0, 4)} •••• ••••
-                            </Text>
-                            
-                            {/* Card Holder */}
-                            <Text style={{ 
-                              color: 'rgba(255, 255, 255, 0.8)', 
-                              fontSize: 10, 
-                              fontWeight: '500',
-                              marginBottom: 4
-                            }}>
-                              CARD HOLDER
-                            </Text>
-                            
-                            {/* Balance Display */}
-                            <View style={{
-                              backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                              borderRadius: 8,
-                              paddingHorizontal: 8,
-                              paddingVertical: 4,
-                              alignSelf: 'flex-start'
-                            }}>
-                              <Text style={{ 
-                                color: 'white', 
-                                fontSize: 12, 
-                                fontWeight: '700'
-                              }}>
-                                ${detectedCard.deviceBalance.toFixed(2)}
-                              </Text>
-                            </View>
-                          </View>
-
-                          {/* Payment Actions */}
-                          {detectedCard.deviceBalance >= (getTotalPrice() / 100) ? (
-                            <View style={{ gap: 12 }}>
-                              <Pressable 
-                                onPress={confirmPayment}
-                                style={{ 
-                                  backgroundColor: '#3b82f6',
-                                  paddingVertical: 16,
-                                  borderRadius: 16,
-                                  shadowColor: '#3b82f6',
-                                  shadowOffset: { width: 0, height: 4 },
-                                  shadowOpacity: 0.3,
-                                  shadowRadius: 8,
-                                  elevation: 6
-                                }}
-                              >
-                                <Text style={{ 
-                                  color: 'white', 
-                                  fontWeight: '700', 
-                                  fontSize: 16, 
-                                  textAlign: 'center' 
-                                }}>
-                                  Confirm Payment
-                                </Text>
-                              </Pressable>
-                              <Pressable 
-                                onPress={() => setDetectedCard(null)}
-                                style={{
-                                  backgroundColor: '#f1f5f9',
-                                  paddingVertical: 12,
-                                  borderRadius: 12
-                                }}
-                              >
-                                <Text style={{ 
-                                  color: primaryNavy, 
-                                  fontWeight: '600', 
-                                  fontSize: 14, 
-                                  textAlign: 'center' 
-                                }}>
-                                  Use Different Card
-                                </Text>
-                              </Pressable>
-                            </View>
-                          ) : (
-                            <View style={{ gap: 12 }}>
-                              <View style={{
-                                backgroundColor: '#fef2f2',
-                                borderWidth: 1,
-                                borderColor: '#fecaca',
-                                borderRadius: 12,
-                                padding: 16
-                              }}>
-                                <Text style={{ 
-                                  color: '#dc2626', 
-                                  fontWeight: '600', 
-                                  fontSize: 14, 
-                                  textAlign: 'center',
-                                  marginBottom: 4
-                                }}>
-                                  Insufficient Balance
-                                </Text>
-                                <Text style={{ 
-                                  color: '#991b1b', 
-                                  fontSize: 12, 
-                                  textAlign: 'center' 
-                                }}>
-                                  Need ${((getTotalPrice() / 100) - detectedCard.deviceBalance).toFixed(2)} more
-                                </Text>
-                              </View>
-                              <View className="flex-row" style={{ gap: 8 }}>
-                                <Pressable 
-                                  onPress={() => setDetectedCard(null)}
-                                  style={{
-                                    flex: 1,
-                                    backgroundColor: '#f1f5f9',
-                                    paddingVertical: 12,
-                                    borderRadius: 12
-                                  }}
-                                >
-                                  <Text style={{ 
-                                    color: primaryNavy, 
-                                    fontWeight: '600', 
-                                    fontSize: 14, 
-                                    textAlign: 'center' 
-                                  }}>
-                                    Try Another
-                                  </Text>
-                                </Pressable>
-                                <Pressable 
-                                  onPress={() => {
-                                    setIsCheckoutMode(false);
-                                    setDetectedCard(null);
-                                  }}
-                                  style={{
-                                    flex: 1,
-                                    backgroundColor: '#dc2626',
-                                    paddingVertical: 12,
-                                    borderRadius: 12
-                                  }}
-                                >
-                                  <Text style={{ 
-                                    color: 'white', 
-                                    fontWeight: '600', 
-                                    fontSize: 14, 
-                                    textAlign: 'center' 
-                                  }}>
-                                    Cancel
-                                  </Text>
-                                </Pressable>
-                              </View>
-                            </View>
-                          )}
-                        </View>
                       </View>
                     )}
                     
@@ -1223,6 +1056,7 @@ export default function SalespersonPay() {
               </View>
             )}
 
+            {/* Success State */}
             {status === 'success' && (
               <View className="items-center py-8">
                 <Animated.View style={[animatedSuccessStyle]}>
@@ -1248,7 +1082,7 @@ export default function SalespersonPay() {
                 <Text style={{ color: '#1e40af', fontSize: 24, fontWeight: '700', marginBottom: 8 }}>
                   Payment Successful!
                 </Text>
-                <Text style={{ color: '#64748b', textAlign: 'center', fontSize: 16 }}>
+                <Text style={{ color: '#64748b', textAlign: 'center', fontSize: 16, marginBottom: 24 }}>
                   Your payment has been processed successfully.{'\n'}
                   Receipt details are shown below.
                 </Text>
@@ -1257,247 +1091,109 @@ export default function SalespersonPay() {
           </View>
         )}
 
-        {/* Receipt Section - Only show after successful payment */}
-        {status === 'success' && (
-          <View className="mx-6 mt-4 bg-white rounded-2xl p-6 shadow-sm border-2" style={{ borderColor: '#3b82f6' }}>
-            <View className="items-center mb-4">
-              <View 
-                style={{
-                  backgroundColor: '#3b82f6',
-                  width: 48,
-                  height: 48,
-                  borderRadius: 24,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: 12,
-                  shadowColor: '#3b82f6',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 4,
-                  elevation: 3
-                }}
-              >
-                <CheckCircle2 size={24} color="white" />
+        {/* Receipt Section - Only show when payment is successful */}
+        {status === 'success' && paymentResult && detectedCard && (
+          <View className="mx-6 mt-4 bg-white rounded-2xl p-6 shadow-sm">
+            <View className="flex-row items-center mb-4">
+              <View style={{ backgroundColor: '#3b82f6' }} className="w-10 h-10 rounded-full items-center justify-center mr-3">
+                <Download size={20} color="white" />
               </View>
-              <Text style={{ color: primaryNavy }} className="text-lg font-bold">Payment Receipt</Text>
-              <Text className="text-gray-500 text-sm">Transaction completed successfully</Text>
+              <View>
+                <Text style={{ color: primaryNavy }} className="text-lg font-bold">Payment Receipt</Text>
+                <Text className="text-gray-500 text-sm">Transaction completed</Text>
+              </View>
             </View>
 
             {/* Receipt Details */}
-            <View className="border-t border-gray-100 pt-4">
-              <View className="flex-row justify-between mb-2">
-                <Text className="text-gray-600">Transaction ID:</Text>
-                <Text style={{ color: primaryNavy }} className="font-mono text-sm">
-                  {paymentResult?.transactionId || `TXN-${Date.now().toString().slice(-8)}`}
+            <View className="bg-gray-50 rounded-xl p-4 mb-4">
+              <View className="flex-row justify-between items-center mb-3">
+                <Text className="text-gray-600 font-medium">Transaction ID</Text>
+                <Text style={{ color: primaryNavy }} className="font-bold">
+                  {paymentResult.transactionId || 'N/A'}
                 </Text>
-              </View>
-              <View className="flex-row justify-between mb-2">
-                <Text className="text-gray-600">Date & Time:</Text>
-                <Text style={{ color: primaryNavy }} className="text-sm">{new Date().toLocaleString()}</Text>
-              </View>
-              <View className="flex-row justify-between mb-2">
-                <Text className="text-gray-600">Payment Method:</Text>
-                <Text style={{ color: primaryNavy }} className="text-sm">
-                  RFID Card {detectedCard ? `••••${detectedCard.uid.slice(-4)}` : '••••0349'}
-                </Text>
-              </View>
-              <View className="flex-row justify-between mb-2">
-                <Text className="text-gray-600">Previous Balance:</Text>
-                <Text style={{ color: primaryNavy }} className="text-sm">
-                  ${paymentResult?.previousBalance?.toFixed(2) || detectedCard?.deviceBalance?.toFixed(2) || '0.00'}
-                </Text>
-              </View>
-              <View className="flex-row justify-between mb-2">
-                <Text className="text-gray-600">New Balance:</Text>
-                <Text style={{ color: primaryNavy }} className="text-sm">
-                  ${paymentResult?.newBalance?.toFixed(2) || '0.00'}
-                </Text>
-              </View>
-              <View className="flex-row justify-between mb-2">
-                <Text className="text-gray-600">Cashier:</Text>
-                <Text style={{ color: primaryNavy }} className="text-sm">{currentUser?.username || 'Sales Pro'}</Text>
               </View>
               
-              <View className="border-t border-gray-100 mt-4 pt-4">
-                <Text className="text-gray-600 mb-3 font-semibold">Items Purchased:</Text>
-                {displayItems.map((item, index) => (
-                  <View key={index} className="flex-row justify-between mb-2">
-                    <View className="flex-1">
-                      <Text style={{ color: primaryNavy }} className="text-sm font-medium" numberOfLines={1}>
-                        {item.name}
-                      </Text>
-                      <Text className="text-gray-500 text-xs">
-                        {item.quantity} × ${(item.price / 100).toFixed(2)}
-                      </Text>
-                    </View>
-                    <Text style={{ color: primaryNavy }} className="font-semibold">
-                      ${(item.totalPrice / 100).toFixed(2)}
-                    </Text>
-                  </View>
-                ))}
+              <View className="flex-row justify-between items-center mb-3">
+                <Text className="text-gray-600 font-medium">Card UID</Text>
+                <Text style={{ color: primaryNavy }} className="font-bold">{detectedCard.uid}</Text>
+              </View>
+              
+              <View className="flex-row justify-between items-center mb-3">
+                <Text className="text-gray-600 font-medium">Amount Paid</Text>
+                <Text style={{ color: '#16a34a' }} className="font-bold text-lg">
+                  ${(getTotalPrice() / 100).toFixed(2)}
+                </Text>
+              </View>
+              
+              <View className="border-t border-gray-200 pt-3 mt-3">
+                <View className="flex-row justify-between items-center mb-2">
+                  <Text className="text-gray-600 font-medium">Previous Balance</Text>
+                  <Text className="text-gray-700 font-semibold">
+                    ${detectedCard.deviceBalance.toFixed(2)}
+                  </Text>
+                </View>
                 
-                <View className="border-t border-gray-100 mt-3 pt-3">
-                  <View className="flex-row justify-between">
-                    <Text style={{ color: primaryNavy }} className="text-lg font-bold">Total Paid:</Text>
-                    <Text style={{ color: primaryNavy }} className="text-xl font-bold">
-                      ${(getTotalPrice() / 100).toFixed(2)}
-                    </Text>
-                  </View>
+                <View className="flex-row justify-between items-center">
+                  <Text className="text-gray-600 font-medium">New Balance</Text>
+                  <Text style={{ color: '#3b82f6' }} className="font-bold text-lg">
+                    ${paymentResult.newBalance.toFixed(2)}
+                  </Text>
                 </View>
               </View>
             </View>
 
-            {/* Receipt Footer */}
-            <View className="border-t border-gray-100 mt-4 pt-4">
-              <Text className="text-gray-500 text-xs text-center mb-4">
-                Thank you for your purchase!{'\n'}
-                Receipt sent to customer&apos;s digital wallet
-              </Text>
-              
-              {/* Action Buttons */}
-              <View className="flex-row mb-3">
-                <Pressable 
-                  onPress={async () => {
-                    try {
-                      // Create detailed receipt data with real payment information
-                      const receiptData = {
-                        transactionId: paymentResult?.transactionId || `TXN-${Date.now().toString().slice(-8)}`,
-                        date: new Date().toLocaleDateString('en-US', { 
-                          weekday: 'long', 
-                          year: 'numeric', 
-                          month: 'long', 
-                          day: 'numeric' 
-                        }),
-                        time: new Date().toLocaleTimeString('en-US', { 
-                          hour: '2-digit', 
-                          minute: '2-digit',
-                          hour12: true 
-                        }),
-                        cashier: currentUser?.username || 'Sales Pro',
-                        cardUID: detectedCard?.uid || 'Unknown',
-                        previousBalance: paymentResult?.previousBalance || detectedCard?.deviceBalance || 0,
-                        newBalance: paymentResult?.newBalance || 0,
-                        items: displayItems.map(item => ({
-                          name: item.name,
-                          quantity: item.quantity,
-                          unitPrice: (item.price / 100).toFixed(2),
-                          totalPrice: (item.totalPrice / 100).toFixed(2)
-                        })),
-                        subtotal: (getTotalPrice() / 100).toFixed(2),
-                        totalAmount: (getTotalPrice() / 100).toFixed(2),
-                        paymentMethod: `RFID Card ••••${detectedCard?.uid?.slice(-4) || '0000'}`,
-                        location: 'Nexa Luxury Vehicles',
-                        address: '123 Premium Drive, Luxury District'
-                      };
-                      
-                      // Create formatted receipt text
-                      const receiptText = `
-═══════════════════════════════════
-         NEXA LUXURY VEHICLES
-═══════════════════════════════════
-${receiptData.address}
+            {/* Items Summary */}
+            <View className="mb-4">
+              <Text style={{ color: primaryNavy }} className="font-bold mb-2">Items Purchased:</Text>
+              {displayItems.map((item, index) => (
+                <View key={item._id} className="flex-row justify-between items-center py-1">
+                  <Text className="text-gray-600 flex-1" numberOfLines={1}>
+                    {item.name} x{item.quantity}
+                  </Text>
+                  <Text className="text-gray-700 font-semibold">
+                    ${(item.totalPrice / 100).toFixed(2)}
+                  </Text>
+                </View>
+              ))}
+            </View>
 
-Transaction ID: ${receiptData.transactionId}
-Date: ${receiptData.date}
-Time: ${receiptData.time}
-Cashier: ${receiptData.cashier}
+            {/* Download Receipt Button */}
+            <Pressable 
+              onPress={downloadReceipt}
+              style={{ backgroundColor: '#3b82f6' }}
+              className="flex-row items-center justify-center py-4 rounded-xl"
+            >
+              <Download size={20} color="white" />
+              <Text className="text-white font-bold text-base ml-2">Download Receipt</Text>
+            </Pressable>
 
-═══════════════════════════════════
-              PAYMENT INFO
-═══════════════════════════════════
-Card UID: ${receiptData.cardUID}
-Previous Balance: $${receiptData.previousBalance.toFixed(2)}
-Amount Paid: $${receiptData.totalAmount}
-New Balance: $${receiptData.newBalance.toFixed(2)}
-
-═══════════════════════════════════
-                ITEMS
-═══════════════════════════════════
-${receiptData.items.map(item => 
-`${item.name}
-  ${item.quantity} x $${item.unitPrice} = $${item.totalPrice}`
-).join('\n\n')}
-
-═══════════════════════════════════
-TOTAL PAID:                 $${receiptData.totalAmount}
-
-Payment Method: ${receiptData.paymentMethod}
-═══════════════════════════════════
-      Thank you for your purchase!
-         Visit us again soon!
-═══════════════════════════════════
-                      `;
-                      
-                      // Share the receipt using native share functionality
-                      try {
-                        await Share.share({
-                          message: receiptText,
-                          title: `Receipt - ${receiptData.transactionId}`,
-                        });
-                        console.log('✅ Receipt shared successfully');
-                      } catch (shareError) {
-                        console.log('Share cancelled or failed:', shareError);
-                      }
-                      
-                      // Show success message
-                      Alert.alert(
-                        '✅ Receipt Generated!', 
-                        `Receipt created successfully!\n\n📄 Transaction: ${receiptData.transactionId}\n💰 Total: $${receiptData.totalAmount}\n📅 ${receiptData.date}\n🕐 ${receiptData.time}\n\n📱 Receipt has been shared - you can save it to your device`,
-                        [
-                          { 
-                            text: 'View Receipt', 
-                            onPress: () => {
-                              Alert.alert('Digital Receipt', receiptText, [{ text: 'Close' }]);
-                            }
-                          },
-                          { text: 'OK' }
-                        ]
-                      );
-                    } catch (error) {
-                      console.error('❌ Receipt download error:', error);
-                      Alert.alert(
-                        'Download Failed', 
-                        `Unable to save receipt to device storage.\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease check storage permissions and try again.`,
-                        [{ text: 'OK' }]
-                      );
-                    }
-                  }}
-                  className="flex-1 bg-gray-100 py-4 rounded-xl flex-row items-center justify-center mr-3"
-                >
-                  <Download size={20} color={primaryNavy} />
-                  <Text style={{ color: primaryNavy }} className="ml-2 font-bold">Download Receipt</Text>
-                </Pressable>
-                
-                <Pressable 
-                  onPress={() => {
-                    clearCart();
-                    router.push('/(main)/salesperson/dashboard');
-                  }}
-                  style={{ backgroundColor: primaryNavy }}
-                  className="flex-1 py-4 rounded-xl flex-row items-center justify-center"
-                >
-                  <ArrowLeft size={20} color="white" />
-                  <Text className="text-white ml-2 font-bold">Back to Dashboard</Text>
-                </Pressable>
-              </View>
-              
-              {/* New Transaction Button */}
+            {/* Action Buttons */}
+            <View className="flex-row mt-4" style={{ gap: 12 }}>
               <Pressable 
                 onPress={() => {
+                  // Reset everything for new transaction
+                  setStatus('idle');
+                  setIsCheckoutMode(false);
+                  setDetectedCard(null);
+                  setPaymentResult(null);
                   clearCart();
-                  router.push('/(main)/salesperson/products');
                 }}
-                style={{ backgroundColor: '#3b82f6' }}
-                className="py-4 rounded-xl flex-row items-center justify-center"
+                style={{ backgroundColor: '#16a34a' }}
+                className="flex-1 py-3 rounded-xl"
               >
-                <ShoppingCart size={20} color="white" />
-                <Text className="text-white ml-2 font-bold">Start New Transaction</Text>
+                <Text className="text-white font-bold text-center">New Transaction</Text>
+              </Pressable>
+              
+              <Pressable 
+                onPress={() => router.push('/(main)/salesperson/products')}
+                style={{ backgroundColor: primaryNavy }}
+                className="flex-1 py-3 rounded-xl"
+              >
+                <Text className="text-white font-bold text-center">Continue Shopping</Text>
               </Pressable>
             </View>
           </View>
         )}
-
-        <View className="h-32" />
       </ScrollView>
 
       <SalespersonBottomNav primaryNavy={primaryNavy} />
