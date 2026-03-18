@@ -12,6 +12,7 @@ import Animated, {
   Easing
 } from 'react-native-reanimated';
 import { SalespersonBottomNav } from '../../../components/SalespersonBottomNav';
+import { SalespersonTopbar } from '../../../components/SalespersonTopbar';
 import { StorageService } from '../../../services/storage';
 import { User, apiService } from '../../../services/api';
 import { webSocketService, CardScannedEvent } from '../../../services/websocket';
@@ -26,6 +27,7 @@ export default function SalespersonPay() {
   const [detectedCard, setDetectedCard] = useState<CardScannedEvent | null>(null);
   const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
   const [paymentResult, setPaymentResult] = useState<any>(null);
+  const [notificationCount, setNotificationCount] = useState(0);
   
   // Cart context
   const { items, getTotalItems, getTotalPrice, updateQuantity, removeFromCart, clearCart } = useCart();
@@ -58,6 +60,12 @@ export default function SalespersonPay() {
         const token = await StorageService.getToken();
         if (token) {
           apiService.setToken(token);
+        }
+        
+        // Load notification count
+        const notifCountResponse = await apiService.getUnreadNotificationCount();
+        if (notifCountResponse.success) {
+          setNotificationCount(notifCountResponse.count || 0);
         }
       } catch (error) {
         console.error('Failed to load user data:', error);
@@ -317,13 +325,12 @@ Thank you for using Nexa Pay!
   if (items.length === 0 && status === 'idle') {
     return (
       <SafeAreaView className="flex-1 bg-gray-50">
-        <View className="flex-row items-center justify-between px-6 py-4 bg-white">
-          <Pressable onPress={() => router.back()} className="w-10 h-10 items-center justify-center">
-            <ArrowLeft size={24} color={primaryNavy} />
-          </Pressable>
-          <Text style={{ color: primaryNavy }} className="text-lg font-bold">Payment</Text>
-          <View className="w-10" />
-        </View>
+        <SalespersonTopbar 
+          name={currentUser?.username || 'Salesperson'} 
+          role={currentUser?.role === 'admin' ? 'Nexa Agent' : 'Nexa Salesperson'} 
+          primaryNavy={primaryNavy}
+          notificationCount={notificationCount}
+        />
         
         <View className="flex-1 items-center justify-center px-6">
           <View className="w-24 h-24 bg-gray-100 rounded-full items-center justify-center mb-6">
@@ -348,14 +355,12 @@ Thank you for using Nexa Pay!
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
-      {/* Header */}
-      <View className="flex-row items-center justify-between px-6 py-4 bg-white">
-        <Pressable onPress={() => router.back()} className="w-10 h-10 items-center justify-center">
-          <ArrowLeft size={24} color={primaryNavy} />
-        </Pressable>
-        <Text style={{ color: primaryNavy }} className="text-lg font-bold">Payment</Text>
-        <View className="w-10" />
-      </View>
+      <SalespersonTopbar 
+        name={currentUser?.username || 'Salesperson'} 
+        role={currentUser?.role === 'admin' ? 'Nexa Agent' : 'Nexa Salesperson'} 
+        primaryNavy={primaryNavy}
+        notificationCount={notificationCount}
+      />
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Order Summary Card */}
