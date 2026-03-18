@@ -695,7 +695,7 @@ Thank you for using Nexa Pay!
                           letterSpacing: 2,
                           marginBottom: 8
                         }}>
-                          {detectedCard.uid.slice(0, 4)} •••• ••••
+                          {detectedCard.uid}
                         </Text>
                         
                         {/* Card Holder */}
@@ -946,7 +946,7 @@ Thank you for using Nexa Pay!
                         {/* Card number */}
                         <View className="absolute bottom-16 left-6">
                           <Text className="text-white font-mono text-lg tracking-wider">
-                            •••• •••• •••• ••••
+                            {detectedCard ? detectedCard.uid : '•••• •••• •••• ••••'}
                           </Text>
                         </View>
                         
