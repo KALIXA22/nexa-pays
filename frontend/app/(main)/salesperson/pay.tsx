@@ -357,7 +357,7 @@ Thank you for using Nexa Pay!
         <View className="w-10" />
       </View>
 
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Order Summary Card */}
         <View className="mx-6 mt-6 bg-white rounded-2xl p-6 shadow-sm">
           <View className="flex-row items-center mb-4">
@@ -1093,7 +1093,7 @@ Thank you for using Nexa Pay!
 
         {/* Receipt Section - Only show when payment is successful */}
         {status === 'success' && paymentResult && detectedCard && (
-          <View className="mx-6 mt-4 bg-white rounded-2xl p-6 shadow-sm">
+          <View className="mx-6 mt-4 mb-6 bg-white rounded-2xl p-6 shadow-sm">
             <View className="flex-row items-center mb-4">
               <View style={{ backgroundColor: '#3b82f6' }} className="w-10 h-10 rounded-full items-center justify-center mr-3">
                 <Download size={20} color="white" />
