@@ -2,7 +2,7 @@ import { View, Text, ScrollView, Pressable, TextInput, Image } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
-import { Plus, Minus, Search, ShoppingCart, ArrowRight, Filter, Grid, List, Heart, Package, Trash2 } from 'lucide-react-native';
+import { Plus, Minus, Search, ShoppingCart, ArrowLeft, Filter, Grid, List, Heart, Package, Trash2 } from 'lucide-react-native';
 import { SalespersonBottomNav } from '../../../components/SalespersonBottomNav';
 import { StorageService } from '../../../services/storage';
 import { apiService } from '../../../services/api';
@@ -107,28 +107,26 @@ export default function SalespersonProducts() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header */}
-      <View className="px-6 pt-12 pb-4 bg-white">
-        <View className="flex-row justify-between items-center mb-4">
-          <Pressable onPress={() => router.back()}>
-            <Text className="text-2xl">←</Text>
+      <View className="flex-row items-center justify-between px-6 py-4 bg-white">
+        <Pressable onPress={() => router.back()} className="w-10 h-10 items-center justify-center">
+          <ArrowLeft size={24} color={primaryNavy} />
+        </Pressable>
+        <Text style={{ color: primaryNavy }} className="text-lg font-bold">Products</Text>
+        <View className="flex-row">
+          <Pressable 
+            onPress={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+            className="mr-3"
+          >
+            {viewMode === 'grid' ? <List size={24} color={primaryNavy} /> : <Grid size={24} color={primaryNavy} />}
           </Pressable>
-          <Text style={{ 
-            color: primaryNavy,
-            fontFamily: 'Poppins_800ExtraBold'
-          }} className="text-xl">Products</Text>
-          <View className="flex-row">
-            <Pressable 
-              onPress={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-              className="mr-3"
-            >
-              {viewMode === 'grid' ? <List size={24} color={primaryNavy} /> : <Grid size={24} color={primaryNavy} />}
-            </Pressable>
-            <Heart size={24} color={primaryNavy} />
-          </View>
+          <Heart size={24} color={primaryNavy} />
         </View>
+      </View>
 
+      {/* Search and Filter Section */}
+      <View className="px-6 py-4 bg-white border-b border-gray-100">
         {/* Search Bar */}
         <View className="flex-row items-center mb-4">
           <View className="flex-1 flex-row items-center bg-slate-50 border border-slate-200 px-4 py-3 rounded-2xl mr-3">
@@ -139,7 +137,6 @@ export default function SalespersonProducts() {
               onChangeText={setSearchQuery}
               className="ml-3 flex-1 text-slate-600 text-base"
               placeholderTextColor="#94a3b8"
-              style={{ fontFamily: 'Poppins_500Medium' }}
             />
           </View>
           <Pressable 
@@ -151,7 +148,7 @@ export default function SalespersonProducts() {
         </View>
 
         {/* Category Filter */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {categories.map((category, index) => (
             <Pressable 
               key={index}
@@ -163,9 +160,8 @@ export default function SalespersonProducts() {
               className="px-6 py-3 rounded-2xl border border-slate-200"
             >
               <Text style={{ 
-                color: selectedCategory === category ? 'white' : '#64748b',
-                fontFamily: 'Poppins_600SemiBold'
-              }} className="text-base">{category}</Text>
+                color: selectedCategory === category ? 'white' : '#64748b'
+              }} className="text-base font-semibold">{category}</Text>
             </Pressable>
           ))}
         </ScrollView>
