@@ -647,7 +647,7 @@ export default function SalespersonPay() {
             )}
 
             {status !== 'success' && (
-              <>
+              <View>
                 {/* RFID Scanner Area with Corner Framers */}
                 <View className="items-center py-8">
                   {/* Scanner Frame with Corner Framers */}
@@ -660,7 +660,7 @@ export default function SalespersonPay() {
                     
                     {/* Scanning Waves Animation */}
                     {status === 'scanning' && (
-                      <>
+                      <View>
                         <Animated.View 
                           style={[
                             {
@@ -693,7 +693,7 @@ export default function SalespersonPay() {
                             { ...animatedPulseStyle, transform: [{ scale: pulseScale.value * 1.1 }] }
                           ]} 
                         />
-                      </>
+                      </View>
                     )}
 
                     {/* Card Visual */}
@@ -1220,7 +1220,7 @@ export default function SalespersonPay() {
                     )}
                   </View>
                 </View>
-              </>
+              </View>
             )}
 
             {status === 'success' && (
