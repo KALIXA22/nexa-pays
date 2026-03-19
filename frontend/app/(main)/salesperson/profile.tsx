@@ -43,19 +43,16 @@ export default function SalespersonProfile() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header */}
-      <View className="px-6 pt-12 pb-4 bg-white">
-        <View className="flex-row justify-between items-center">
-          <Pressable onPress={() => router.back()}>
-            <ArrowLeft size={24} color={primaryNavy} />
-          </Pressable>
-          <Text style={{ 
-            color: primaryNavy,
-            fontFamily: 'Poppins_800ExtraBold'
-          }} className="text-xl">Profile</Text>
-          <View className="w-6" />
-        </View>
+      <View className="flex-row items-center justify-between px-6 py-4 bg-white">
+        <Pressable onPress={() => router.back()} className="w-10 h-10 items-center justify-center">
+          <ArrowLeft size={24} color={primaryNavy} />
+        </Pressable>
+        <Text style={{ color: primaryNavy }} className="text-lg font-bold">Profile</Text>
+        <Pressable onPress={handleSettings} className="w-10 h-10 items-center justify-center">
+          <Settings size={24} color={primaryNavy} />
+        </Pressable>
       </View>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
