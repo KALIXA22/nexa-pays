@@ -7,9 +7,9 @@ import { Platform } from 'react-native';
 // Current machine IP: 10.12.72.161
 const API_BASE_URL = __DEV__
     ? Platform.OS === 'android'
-        ? 'http://10.12.72.161:9210'  // Use host machine IP for Android
-        : 'http://localhost:9210'     // iOS simulator
-    : 'http://localhost:9210';       // Production (update with actual server URL)
+        ? 'http://10.12.72.161:9243'  // Use host machine IP for Android
+        : 'http://localhost:9243'     // iOS simulator
+    : 'http://localhost:9243';       // Production (update with actual server URL)
 
 export interface User {
     username: string;
@@ -106,9 +106,9 @@ class ApiService {
     async testConnection(): Promise<{ success: boolean; message: string; url?: string }> {
         const urlsToTry = [
             API_BASE_URL,
-            'http://10.0.2.2:9210',      // Android emulator standard
-            'http://10.12.72.161:9210',  // Host machine IP
-            'http://localhost:9210'       // Localhost fallback
+            'http://10.0.2.2:9243',      // Android emulator standard
+            'http://10.12.72.161:9243',  // Host machine IP
+            'http://localhost:9243'       // Localhost fallback
         ];
 
         for (const url of urlsToTry) {

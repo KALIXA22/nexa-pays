@@ -48,7 +48,7 @@ app.use(express.json());
 // ========================================
 // CONFIGURATION
 // ========================================
-const PORT = process.env.PORT || 9210;
+const PORT = process.env.PORT || 9243;
 const TEAM_ID = "team_07";
 const MQTT_BROKER = "mqtt://157.173.101.159:1883";
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
