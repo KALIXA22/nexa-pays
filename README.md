@@ -48,7 +48,7 @@ npm install
 # - Update MONGODB_URI in database.js
 # - Update MQTT_BROKER in server.js
 npm run dev
-# Runs on http://localhost:9210
+# Runs on http://localhost:9243
 ```
 
 ### Mobile App (React Native + Expo)
@@ -176,4 +176,4 @@ NexaPay/
 **Status**: Production Ready | **Updated**: March 2026
 
 ### Backend API
-**http://157.173.101.159:9210/**
+**http://157.173.101.159:9243/**
