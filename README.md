@@ -175,5 +175,4 @@ NexaPay/
 
 **Status**: Production Ready | **Updated**: March 2026
 
-### Backend API
-**http://157.173.101.159:9243/**
+
